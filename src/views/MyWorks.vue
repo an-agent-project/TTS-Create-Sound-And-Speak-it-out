@@ -5,6 +5,7 @@
       <p class="page-subtitle">
         已保存 {{ store.works.length }} 个配音作品
       </p>
+      <p v-if="loadError" class="load-error">{{ loadError }}</p>
     </div>
 
     <!-- Works List -->
@@ -62,7 +63,7 @@
             :current-time="0"
             :duration="previewWork.duration || 0"
             :volume="80"
-            audio-url="#"
+            :audio-url="previewWork.audioUrl"
             @toggle-play="isPlaying = !isPlaying"
           />
           <div class="modal-actions">
@@ -76,7 +77,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAppStore } from "../stores/app.js";
 import WorkCard from "../components/WorkCard.vue";
@@ -88,15 +89,28 @@ const store = useAppStore();
 const deleteTarget = ref(null);
 const previewWork = ref(null);
 const isPlaying = ref(false);
+const loadError = ref("");
+
+onMounted(async () => {
+  try {
+    await store.fetchWorks();
+  } catch (error) {
+    loadError.value = `后端暂时不可用：${error.message}`;
+  }
+});
 
 function confirmDelete(work) {
   deleteTarget.value = work;
 }
 
-function doDelete() {
+async function doDelete() {
   if (deleteTarget.value) {
-    store.deleteWork(deleteTarget.value.id);
-    deleteTarget.value = null;
+    try {
+      await store.deleteWork(deleteTarget.value.id);
+      deleteTarget.value = null;
+    } catch (error) {
+      loadError.value = `删除失败：${error.message}`;
+    }
   }
 }
 
@@ -117,6 +131,12 @@ function editWork(work) {
   align-items: center;
   justify-content: center;
   animation: fadeIn 0.2s ease;
+}
+
+.load-error {
+  margin-top: 8px;
+  color: #b91c1c;
+  font-size: 14px;
 }
 
 .confirm-modal,

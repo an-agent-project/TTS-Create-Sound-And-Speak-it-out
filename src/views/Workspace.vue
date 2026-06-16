@@ -142,6 +142,9 @@
             🎧 一键生成配音
           </template>
         </button>
+        <div v-if="generationError" class="error-card">
+          {{ generationError }}
+        </div>
 
         <!-- Preview Area -->
         <div v-if="generatedWork" class="section preview-section">
@@ -163,7 +166,7 @@
               :current-time="0"
               :duration="generatedWork.duration || 0"
               :volume="80"
-              audio-url="#"
+              :audio-url="generatedWork.audioUrl"
               @toggle-play="isPlaying = !isPlaying"
             />
             <div class="preview-actions">
@@ -187,8 +190,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useAppStore } from "../stores/app.js";
+import { fetchScenes, fetchVoices, generateTts } from "../services/api.js";
 import SceneCard from "../components/SceneCard.vue";
 import TextEditor from "../components/TextEditor.vue";
 import AudioPlayer from "../components/AudioPlayer.vue";
@@ -196,7 +200,7 @@ import VoicePreview from "../components/VoicePreview.vue";
 
 const store = useAppStore();
 
-const scenes = [
+const fallbackScenes = [
   {
     id: "podcast",
     name: "播客模式",
@@ -231,7 +235,7 @@ const scenes = [
   },
 ];
 
-const availableVoices = [
+const fallbackVoices = [
   { id: "zh-CN-XiaoxiaoNeural", name: "晓晓", gender: "female", style: "温柔", category: "知识类", description: "温柔知性的女声，适合知识讲解、课程录制" },
   { id: "zh-CN-YunxiNeural", name: "云希", gender: "male", style: "磁性", category: "故事类", description: "磁性的男声，适合故事叙述、播客节目" },
   { id: "zh-CN-XiaoyiNeural", name: "晓伊", gender: "female", style: "活泼", category: "情感类", description: "活泼可爱的女声，适合轻松内容" },
@@ -247,20 +251,34 @@ const emotions = [
   { value: "excited", icon: "🤩", label: "激动" },
 ];
 
-const selectedScene = ref(null);
-const selectedVoice = ref(null);
-const textContent = ref("");
+const scenes = ref(fallbackScenes);
+const availableVoices = ref(fallbackVoices);
+const selectedScene = ref(store.selectedScene || null);
+const selectedVoice = ref(store.selectedVoice || null);
+const textContent = ref(store.textContent || "");
 const settings = ref({
-  speed: 1.0,
-  pitch: "normal",
-  emotion: "calm",
-  bgmType: "none",
-  bgmVolume: 30,
+  ...store.settings,
 });
 const isGenerating = ref(false);
 const isPlaying = ref(false);
 const generatedWork = ref(null);
 const previewVoice = ref(null);
+const generationError = ref("");
+
+onMounted(async () => {
+  try {
+    const [sceneList, voiceList] = await Promise.all([fetchScenes(), fetchVoices()]);
+    scenes.value = sceneList;
+    availableVoices.value = voiceList;
+  } catch (error) {
+    generationError.value = `后端暂时不可用，已使用本地示例数据：${error.message}`;
+  }
+
+  if (store.currentWork) {
+    textContent.value = store.currentWork.content;
+    generatedWork.value = store.currentWork;
+  }
+});
 
 const canGenerate = computed(() => {
   return textContent.value.trim().length > 0 && selectedVoice.value !== null && !isGenerating.value;
@@ -268,43 +286,45 @@ const canGenerate = computed(() => {
 
 function selectScene(scene) {
   selectedScene.value = scene;
+  store.selectedScene = scene;
   settings.value.speed = scene.defaultSpeed;
 }
 
 async function generateAudio() {
   if (!canGenerate.value) return;
   isGenerating.value = true;
+  generationError.value = "";
 
-  // Simulate generation delay
-  await new Promise((r) => setTimeout(r, 1500));
+  try {
+    const work = await generateTts({
+      content: textContent.value,
+      sceneId: selectedScene.value?.id || "",
+      voiceId: selectedVoice.value.id,
+      speed: settings.value.speed,
+      pitch: settings.value.pitch,
+      emotion: settings.value.emotion,
+      bgmType: settings.value.bgmType,
+      bgmVolume: settings.value.bgmVolume,
+    });
 
-  generatedWork.value = {
-    title: selectedScene.value
-      ? `【${selectedScene.value.name}】${textContent.value.slice(0, 20)}...`
-      : textContent.value.slice(0, 30) + "...",
-    content: textContent.value,
-    sceneId: selectedScene.value?.id || "",
-    sceneName: selectedScene.value?.name || "通用",
-    voiceId: selectedVoice.value.id,
-    voiceName: selectedVoice.value.name,
-    speed: settings.value.speed,
-    pitch: settings.value.pitch,
-    emotion: settings.value.emotion,
-    bgmType: settings.value.bgmType,
-    bgmVolume: settings.value.bgmVolume,
-    duration: Math.ceil(textContent.value.length / 4),
-  };
-
-  isGenerating.value = false;
+    generatedWork.value = work;
+    store.addWork(work);
+  } catch (error) {
+    generationError.value = error.message || "配音生成失败，请稍后重试。";
+  } finally {
+    isGenerating.value = false;
+  }
 }
 
 function regenerate() {
   generatedWork.value = null;
+  generationError.value = "";
 }
 
-function saveWork() {
+async function saveWork() {
   if (generatedWork.value) {
     store.addWork(generatedWork.value);
+    await store.fetchWorks();
     alert("✅ 作品已保存！可在「我的作品」中查看。");
   }
 }
@@ -313,6 +333,16 @@ function saveWork() {
 <style scoped>
 .workspace-page {
   padding-bottom: 40px;
+}
+
+.error-card {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 14px;
 }
 
 .voice-option {

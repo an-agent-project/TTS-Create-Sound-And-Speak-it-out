@@ -104,3 +104,45 @@ AI 服务层
 - 音色库、场景模板和作品管理功能
 - API 接口文档与数据库设计
 - 项目 README、分工表、技术选型确认书
+
+## 本地运行
+
+### 1. 启动后端
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+后端默认提供：
+
+- API 地址：http://127.0.0.1:8000/api
+- 接口文档：http://127.0.0.1:8000/docs
+- 音频文件：http://127.0.0.1:8000/media
+
+### 2. 启动前端
+
+```bash
+npm install
+npm run dev
+```
+
+然后打开：http://localhost:5173
+
+前端已配置 Vite 代理，`/api` 和 `/media` 会转发到本地 FastAPI 后端。
+
+## 后端已实现接口
+
+- `GET /api/health`：后端健康检查
+- `GET /api/scenes`：获取场景模板
+- `GET /api/voices`：获取中文 Edge-TTS 音色库
+- `POST /api/text/preprocess`：文本清洗、智能分段、停顿估计、敏感词检测
+- `POST /api/tts/generate`：调用 Edge-TTS 生成 MP3，并自动保存作品
+- `GET /api/works`：获取作品列表
+- `GET /api/works/{work_id}`：获取作品详情
+- `DELETE /api/works/{work_id}`：删除作品和对应音频文件
+
+当前版本使用 `backend/data/works.json` 保存作品元数据，使用 `backend/media/` 保存生成的音频文件。BGM 参数已在接口中保留，后续可接入 FFmpeg/pydub 完成背景音乐混音。

@@ -88,6 +88,10 @@
         />
       </div>
 
+      <div v-if="loadError" class="load-error">
+        {{ loadError }}
+      </div>
+
       <!-- Empty -->
       <div v-if="filteredVoices.length === 0" class="empty-state">
         <div class="icon">🔍</div>
@@ -107,9 +111,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useAppStore } from "../stores/app.js";
+import { fetchVoices } from "../services/api.js";
 import VoiceCard from "../components/VoiceCard.vue";
 import VoicePreview from "../components/VoicePreview.vue";
 
@@ -120,10 +125,11 @@ const filterGender = ref("all");
 const filterCategory = ref("all");
 const showFavoritesOnly = ref(false);
 const previewVoice = ref(null);
+const loadError = ref("");
 
 const categories = ["知识类", "播客类", "故事类", "情感类"];
 
-const allVoices = [
+const fallbackVoices = [
   { id: "zh-CN-XiaoxiaoNeural", name: "晓晓", gender: "female", style: "温柔", category: "知识类", description: "温柔知性的女声，适合知识讲解、课程录制", isRecommended: true },
   { id: "zh-CN-YunxiNeural", name: "云希", gender: "male", style: "磁性", category: "故事类", description: "磁性的男声，适合故事叙述、播客节目", isRecommended: true },
   { id: "zh-CN-XiaoyiNeural", name: "晓伊", gender: "female", style: "活泼", category: "情感类", description: "活泼可爱的女声，适合轻松内容、情感表达", isRecommended: true },
@@ -142,8 +148,18 @@ const allVoices = [
   { id: "zh-CN-XiaoruiNeural", name: "晓蕊", gender: "female", style: "知性", category: "知识类", description: "知性优雅的女声，适合人文社科类内容" },
 ];
 
+const allVoices = ref(fallbackVoices);
+
+onMounted(async () => {
+  try {
+    allVoices.value = await fetchVoices();
+  } catch (error) {
+    loadError.value = `后端暂时不可用，当前展示本地示例音色：${error.message}`;
+  }
+});
+
 const filteredVoices = computed(() => {
-  let voices = allVoices;
+  let voices = allVoices.value;
   if (filterGender.value !== "all") {
     voices = voices.filter((v) => v.gender === filterGender.value);
   }
@@ -215,5 +231,11 @@ function goToWorkspace(voice) {
 
 .fav-filter {
   border-style: dashed;
+}
+
+.load-error {
+  margin-top: 16px;
+  color: #b91c1c;
+  font-size: 14px;
 }
 </style>

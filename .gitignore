@@ -1,1 +1,12 @@
-node_modules/\r\ndist/\r\n.DS_Store\r\n*.local\r\n.vite/\r\n
+node_modules/
+dist/
+.DS_Store
+*.local
+.vite/
+backend/data/works.json
+backend/media/*.mp3
+backend/media/*.wav
+backend/.venv/
+backend/__pycache__/
+backend/app/__pycache__/
+backend/app/services/__pycache__/

@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { ref } from "vue";
+import { deleteWorkById, fetchWorks as fetchWorksApi } from "../services/api.js";
 
 export const useAppStore = defineStore("app", () => {
   const works = ref([]);
@@ -18,17 +19,19 @@ export const useAppStore = defineStore("app", () => {
     bgmVolume: 30,
   });
 
-  function addWork(work) {
-    works.value.unshift({
-      id: Date.now().toString(),
-      ...work,
-      status: "completed",
-      createdAt: new Date().toISOString(),
-      duration: Math.ceil(work.content.length / 5),
-    });
+  async function fetchWorks() {
+    works.value = await fetchWorksApi();
   }
 
-  function deleteWork(id) {
+  function addWork(work) {
+    const existed = works.value.some((item) => item.id === work.id);
+    if (!existed) {
+      works.value.unshift(work);
+    }
+  }
+
+  async function deleteWork(id) {
+    await deleteWorkById(id);
     works.value = works.value.filter((w) => w.id !== id);
   }
 
@@ -67,6 +70,7 @@ export const useAppStore = defineStore("app", () => {
     textContent,
     currentWork,
     settings,
+    fetchWorks,
     addWork,
     deleteWork,
     toggleFavoriteVoice,
