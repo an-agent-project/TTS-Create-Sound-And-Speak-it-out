@@ -1,14 +1,14 @@
-<template>
+﻿<template>
   <div class="bind-overlay" @click.self="$emit('close')">
     <div class="bind-card">
-      <button class="close-x" @click="$emit('close')">✕</button>
+      <button class="close-x" @click="$emit('close')"><X :size="16" /></button>
 
-      <div class="bind-icon">📱</div>
+      <div class="bind-icon"><Smartphone :size="40" /></div>
       <h3 class="bind-title">绑定手机号</h3>
       <p class="bind-desc">为了账户安全，建议绑定手机号</p>
 
       <div class="input-group">
-        <span class="input-icon">📱</span>
+        <Smartphone :size="16" class="input-icon" />
         <input
           v-model="phone"
           type="tel"
@@ -19,7 +19,7 @@
       </div>
 
       <div class="input-group sms-group">
-        <span class="input-icon">✉️</span>
+        <Mail :size="16" class="input-icon" />
         <input
           v-model="code"
           type="text"
@@ -49,6 +49,7 @@
 <script setup>
 import { ref } from "vue";
 import { useAppStore } from "../stores/app.js";
+import { Smartphone, Mail, X } from 'lucide-vue-next'
 
 const store = useAppStore();
 const emit = defineEmits(["close", "bindSuccess"]);
@@ -110,14 +111,20 @@ function handleBind() {
   right: 14px;
   background: none;
   border: none;
-  font-size: 16px;
   color: #999;
   cursor: pointer;
+  display: flex;
+}
+
+.close-x:hover {
+  color: #333;
 }
 
 .bind-icon {
-  font-size: 40px;
+  color: var(--primary);
   margin-bottom: 12px;
+  display: flex;
+  justify-content: center;
 }
 
 .bind-title {
@@ -150,8 +157,9 @@ function handleBind() {
 }
 
 .input-icon {
-  font-size: 16px;
   margin-right: 8px;
+  color: #9ca3af;
+  flex-shrink: 0;
 }
 
 .clean-input {

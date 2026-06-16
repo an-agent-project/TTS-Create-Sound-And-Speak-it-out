@@ -1,8 +1,7 @@
-<template>
+﻿<template>
   <div class="profile-page">
-    <!-- Account Info Card -->
     <div class="page-header">
-      <h1 class="page-title">👤 个人中心</h1>
+      <h1 class="page-title"><User :size="28" class="title-icon" /> 个人中心</h1>
     </div>
 
     <div class="card account-card">
@@ -14,7 +13,7 @@
               {{ store.user.username ? store.user.username[0] : '?' }}
             </span>
             <div class="avatar-overlay">
-              <span>📷</span>
+              <Camera :size="28" />
             </div>
           </div>
           <input
@@ -30,15 +29,15 @@
           <h2 class="account-name">{{ store.user.username || '用户' }}</h2>
           <div class="account-meta">
             <div class="meta-item">
-              <span class="meta-icon">📧</span>
+              <Mail :size="18" class="meta-icon" />
               <span>{{ store.user.email || '未设置邮箱' }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-icon">📅</span>
+              <Calendar :size="18" class="meta-icon" />
               <span>注册时间：{{ formattedDate }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-icon">🎧</span>
+              <Layers :size="18" class="meta-icon" />
               <span>作品数量：{{ store.works.length }}</span>
             </div>
           </div>
@@ -52,16 +51,16 @@
     <!-- My Works Section -->
     <div class="section works-section">
       <div class="section-title">
-        <span class="icon">📂</span> 我的作品
+        <BarChart3 :size="22" class="section-icon" /> 我的作品
         <span class="work-count-badge">{{ store.works.length }}</span>
       </div>
 
       <div v-if="store.works.length === 0" class="empty-state">
-        <div class="icon">📭</div>
+        <FolderOpen :size="56" class="empty-icon" />
         <h3>还没有作品</h3>
         <p>前往创作工作台开始你的第一个配音吧</p>
         <router-link to="/workspace" class="btn btn-primary btn-lg" style="margin-top: 16px;">
-          🚀 开始创作
+          <Rocket :size="18" /> 开始创作
         </router-link>
       </div>
 
@@ -72,7 +71,7 @@
           class="work-row"
           @click="previewWork = work"
         >
-          <div class="work-row-icon">📄</div>
+          <div class="work-row-icon"><Music :size="28" /></div>
           <div class="work-row-info">
             <div class="work-row-title">{{ work.title }}</div>
             <div class="work-row-meta">
@@ -83,9 +82,9 @@
             </div>
           </div>
           <div class="work-row-actions" @click.stop>
-            <button class="btn btn-secondary btn-sm" @click="previewWork = work">▶ 播放</button>
+            <button class="btn btn-secondary btn-sm" @click="previewWork = work"><Play :size="14" /> 播放</button>
             <button class="btn btn-primary btn-sm" @click="editWork(work)">编辑</button>
-            <button class="btn btn-danger btn-sm" @click="confirmDelete(work)">🗑</button>
+            <button class="btn btn-danger btn-sm" @click="confirmDelete(work)"><Trash2 :size="14" /></button>
           </div>
         </div>
       </div>
@@ -95,14 +94,14 @@
     <div v-if="previewWork" class="confirm-overlay" @click.self="previewWork = null">
       <div class="preview-modal">
         <div class="modal-header">
-          <h3>🎧 试听作品</h3>
-          <button class="close-btn" @click="previewWork = null">✕</button>
+          <h3><PlayCircle :size="22" class="section-icon" /> 试听作品</h3>
+          <button class="close-btn" @click="previewWork = null"><X :size="18" /></button>
         </div>
         <div class="modal-body">
           <div class="preview-info">
             <strong>{{ previewWork.title }}</strong>
             <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">
-              {{ previewWork.sceneName }} · {{ previewWork.voiceName }} · 时长约 {{ previewWork.duration }} 秒
+              {{ previewWork.sceneName }} · {{ previewWork.voiceName }} · 时长约{{ previewWork.duration }} 秒
             </p>
           </div>
           <AudioPlayer
@@ -121,7 +120,7 @@
       </div>
     </div>
 
-    <!-- Delete Confirm -->
+    <!-- Delete Confirm Modal -->
     <div v-if="deleteTarget" class="confirm-overlay" @click.self="deleteTarget = null">
       <div class="confirm-modal">
         <h3>确认删除</h3>
@@ -140,25 +139,24 @@ import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useAppStore } from "../stores/app.js";
 import AudioPlayer from "../components/AudioPlayer.vue";
+import {
+  User, Camera, Mail, Calendar, Layers, BarChart3, FolderOpen,
+  Rocket, Music, Play, PlayCircle, Trash2, X
+} from 'lucide-vue-next'
 
 const router = useRouter();
 const store = useAppStore();
 
 const fileInput = ref(null);
-const isPlaying = ref(false);
-const previewWork = ref(null);
 const deleteTarget = ref(null);
+const previewWork = ref(null);
+const isPlaying = ref(false);
 
 const formattedDate = computed(() => {
   const d = store.user.registeredAt;
-  if (!d) return "未知";
-  return new Date(d).toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  if (!d) return "";
+  const date = new Date(d);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 });
 
 function triggerFileInput() {
@@ -166,11 +164,11 @@ function triggerFileInput() {
 }
 
 function handleFileChange(e) {
-  const file = e.target.files[0];
+  const file = e.target.files?.[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = (ev) => {
-    store.updateAvatar(ev.target.result);
+  reader.onload = () => {
+    store.updateAvatar(reader.result);
   };
   reader.readAsDataURL(file);
 }
@@ -207,6 +205,22 @@ function doDelete() {
 <style scoped>
 .profile-page {
   padding-bottom: 40px;
+}
+
+.title-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.section-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.empty-icon {
+  color: var(--text-muted);
+  opacity: 0.4;
+  margin-bottom: 16px;
 }
 
 .account-card {
@@ -262,14 +276,11 @@ function doDelete() {
   justify-content: center;
   opacity: 0;
   transition: opacity 0.2s;
+  color: #fff;
 }
 
 .avatar-wrapper:hover .avatar-overlay {
   opacity: 1;
-}
-
-.avatar-overlay span {
-  font-size: 28px;
 }
 
 .avatar-label {
@@ -302,12 +313,12 @@ function doDelete() {
 }
 
 .meta-icon {
-  font-size: 18px;
   width: 28px;
   text-align: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
-/* Works */
 .works-section {
   margin-top: 0;
 }
@@ -349,7 +360,6 @@ function doDelete() {
 }
 
 .work-row-icon {
-  font-size: 28px;
   flex-shrink: 0;
   width: 44px;
   height: 44px;
@@ -358,6 +368,7 @@ function doDelete() {
   justify-content: center;
   background: var(--bg);
   border-radius: 10px;
+  color: var(--primary);
 }
 
 .work-row-info {
@@ -390,7 +401,6 @@ function doDelete() {
   flex-shrink: 0;
 }
 
-/* Modal styles */
 .confirm-overlay {
   position: fixed;
   inset: 0;
@@ -419,6 +429,9 @@ function doDelete() {
 .preview-modal h3 {
   font-size: 18px;
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .confirm-modal p {
@@ -448,11 +461,11 @@ function doDelete() {
 
 .close-btn {
   background: none;
-  font-size: 18px;
   color: var(--text-muted);
   padding: 4px 8px;
   border-radius: var(--radius-xs);
   cursor: pointer;
+  display: flex;
 }
 
 .close-btn:hover {

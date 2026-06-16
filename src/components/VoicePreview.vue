@@ -1,15 +1,19 @@
-<template>
+﻿<template>
   <div class="voice-preview-overlay" @click.self="$emit('close')">
     <div class="voice-preview-modal">
       <div class="modal-header">
-        <h3>🎙️ 音色试听</h3>
-        <button class="close-btn" @click="$emit('close')">✕</button>
+        <h3>音色试听</h3>
+        <button class="close-btn" @click="$emit('close')"><X :size="18" /></button>
       </div>
       <div class="modal-body">
         <div class="preview-voice-info">
-          <div class="preview-avatar">{{ voice.gender === 'male' ? '👨' : voice.gender === 'female' ? '👩' : '👶' }}</div>
+          <div class="preview-avatar" :class="voice.gender">
+            <User v-if="voice.gender === 'male'" :size="30" />
+            <User v-else-if="voice.gender === 'female'" :size="30" />
+            <Baby v-else :size="30" />
+          </div>
           <div>
-            <h4>{{ voice.name }}</h4>
+            <strong>{{ voice.name }}</strong>
             <div class="voice-meta">
               <span class="tag tag-primary">{{ voice.style }}</span>
               <span class="tag tag-success">{{ voice.category }}</span>
@@ -17,24 +21,24 @@
           </div>
         </div>
         <p class="preview-desc">{{ voice.description }}</p>
-
         <div class="preview-sample">
-          <div class="sample-title">📝 试听文本</div>
-          <p class="sample-text">"大家好，欢迎收听本期节目。今天我们要一起探索一个非常有趣的话题。让我们开始吧！"</p>
+          <div class="sample-title">试听文本示例：</div>
+          <div class="sample-text">
+            "你好，我是{{ voice.name }}。欢迎使用有声读物智能生成系统，让我为你的文字赋予动人的声音。"
+          </div>
         </div>
-
         <AudioPlayer
           :is-playing="isPlaying"
           :current-time="0"
-          :duration="15"
+          :duration="8"
           :volume="80"
+          audio-url="#"
           @toggle-play="isPlaying = !isPlaying"
         />
-
         <div class="modal-actions">
           <button class="btn btn-secondary" @click="$emit('close')">关闭</button>
-          <button class="btn btn-primary" @click="$emit('select'); $emit('close')">
-            ✅ 选择此音色
+          <button class="btn btn-primary" @click="$emit('select')">
+            <Check :size="16" /> 选择此音色
           </button>
         </div>
       </div>
@@ -45,6 +49,7 @@
 <script setup>
 import { ref } from "vue";
 import AudioPlayer from "./AudioPlayer.vue";
+import { User, Baby, X, Check } from 'lucide-vue-next'
 
 defineProps({
   voice: { type: Object, required: true },
@@ -91,10 +96,10 @@ const isPlaying = ref(false);
 
 .close-btn {
   background: none;
-  font-size: 18px;
   color: var(--text-muted);
   padding: 4px 8px;
   border-radius: var(--radius-xs);
+  display: flex;
 }
 
 .close-btn:hover {
@@ -114,7 +119,6 @@ const isPlaying = ref(false);
 }
 
 .preview-avatar {
-  font-size: 36px;
   width: 56px;
   height: 56px;
   display: flex;
@@ -122,6 +126,19 @@ const isPlaying = ref(false);
   justify-content: center;
   background: var(--bg);
   border-radius: 14px;
+}
+
+.preview-avatar.male {
+  background: #dbeafe;
+  color: #3b82f6;
+}
+.preview-avatar.female {
+  background: #fce7f3;
+  color: #ec4899;
+}
+.preview-avatar.child {
+  background: #fef3c7;
+  color: #f59e0b;
 }
 
 .voice-meta {
@@ -164,11 +181,7 @@ const isPlaying = ref(false);
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 </style>

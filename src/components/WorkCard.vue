@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <div class="card work-card">
     <div class="work-top">
-      <div class="work-icon">{{ work.icon || '🎧' }}</div>
+      <div class="work-icon"><Music :size="32" /></div>
       <div class="work-info">
         <h4 class="work-title">{{ work.title }}</h4>
         <div class="work-meta">
@@ -13,11 +13,11 @@
     </div>
     <p class="work-excerpt">{{ excerpt }}</p>
     <div class="work-bottom">
-      <span class="work-duration">⏱ {{ work.duration || 0 }} 秒</span>
+      <span class="work-duration"><Clock :size="14" /> {{ work.duration || 0 }} 秒</span>
       <div class="work-actions">
-        <button class="btn btn-secondary btn-sm" @click="$emit('preview')">▶ 试听</button>
+        <button class="btn btn-secondary btn-sm" @click="$emit('preview')"><Play :size="14" /> 试听</button>
         <button class="btn btn-primary btn-sm" @click="$emit('edit')">编辑</button>
-        <button class="btn btn-danger btn-sm" @click="$emit('delete')">🗑</button>
+        <button class="btn btn-danger btn-sm" @click="$emit('delete')"><Trash2 :size="14" /></button>
       </div>
     </div>
   </div>
@@ -25,6 +25,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { Music, Clock, Play, Trash2 } from 'lucide-vue-next'
 
 const props = defineProps({
   work: { type: Object, required: true },
@@ -56,7 +57,6 @@ function formatDate(dateStr) {
 }
 
 .work-icon {
-  font-size: 32px;
   width: 48px;
   height: 48px;
   display: flex;
@@ -65,6 +65,7 @@ function formatDate(dateStr) {
   background: var(--bg);
   border-radius: 12px;
   flex-shrink: 0;
+  color: var(--primary);
 }
 
 .work-info {
@@ -112,6 +113,9 @@ function formatDate(dateStr) {
 }
 
 .work-duration {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
   color: var(--text-muted);
 }

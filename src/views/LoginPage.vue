@@ -4,21 +4,21 @@
     <div class="login-left">
       <div class="brand-content">
         <div class="brand-logo">
-          <span class="logo-icon">🎙️</span>
+          <Mic :size="42" class="brand-mic" />
           <h1>有声读物智能生成系统</h1>
         </div>
         <p class="brand-desc">AI 驱动的语音合成平台，让文字拥有温度</p>
         <div class="feature-list">
           <div class="feature-item">
-            <span class="feature-icon">🎭</span>
+            <Drama :size="22" />
             <span>多场景角色扮演</span>
           </div>
           <div class="feature-item">
-            <span class="feature-icon">🎵</span>
+            <Music :size="22" />
             <span>BGM 智能搭配</span>
           </div>
           <div class="feature-item">
-            <span class="feature-icon">⚡</span>
+            <Zap :size="22" />
             <span>一键快速生成</span>
           </div>
         </div>
@@ -43,7 +43,7 @@
           <div class="input-group">
             <label>账户名称</label>
             <div class="input-box">
-              <span class="input-icon">👤</span>
+              <User :size="18" class="input-icon" />
               <input
                 type="text"
                 v-model="loginForm.username"
@@ -56,7 +56,7 @@
           <div class="input-group">
             <label>密码</label>
             <div class="input-box">
-              <span class="input-icon">🔒</span>
+              <Lock :size="18" class="input-icon" />
               <input
                 :type="showPwd ? 'text' : 'password'"
                 v-model="loginForm.password"
@@ -64,7 +64,8 @@
                 required
               />
               <span class="toggle-pwd" @click="showPwd = !showPwd">
-                {{ showPwd ? '🙈' : '👁️' }}
+                <EyeOff v-if="showPwd" :size="18" />
+                <Eye v-else :size="18" />
               </span>
             </div>
           </div>
@@ -87,7 +88,7 @@
           <div class="input-group">
             <label>账户名称</label>
             <div class="input-box">
-              <span class="input-icon">👤</span>
+              <User :size="18" class="input-icon" />
               <input
                 type="text"
                 v-model="regForm.username"
@@ -100,7 +101,7 @@
           <div class="input-group">
             <label>密码</label>
             <div class="input-box">
-              <span class="input-icon">🔒</span>
+              <Lock :size="18" class="input-icon" />
               <input
                 :type="showPwd ? 'text' : 'password'"
                 v-model="regForm.password"
@@ -108,7 +109,8 @@
                 required
               />
               <span class="toggle-pwd" @click="showPwd = !showPwd">
-                {{ showPwd ? '🙈' : '👁️' }}
+                <EyeOff v-if="showPwd" :size="18" />
+                <Eye v-else :size="18" />
               </span>
             </div>
           </div>
@@ -116,7 +118,7 @@
           <div class="input-group">
             <label>确认密码</label>
             <div class="input-box">
-              <span class="input-icon">🔒</span>
+              <Lock :size="18" class="input-icon" />
               <input
                 type="password"
                 v-model="regForm.confirmPassword"
@@ -142,7 +144,9 @@
           </template>
         </div>
 
-        <router-link to="/" class="back-home">← 返回首页</router-link>
+        <router-link to="/" class="back-home">
+          <ArrowLeft :size="14" /> 返回首页
+        </router-link>
       </div>
     </div>
   </div>
@@ -152,6 +156,7 @@
 import { ref, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
+import { Mic, Drama, Music, Zap, User, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-vue-next'
 
 const router = useRouter()
 const store = useAppStore()
@@ -172,7 +177,6 @@ const regForm = reactive({
   confirmPassword: ''
 })
 
-// 切换表单时清除
 watch(isRegister, () => {
   loginForm.username = ''
   loginForm.password = ''
@@ -236,7 +240,6 @@ function handleRegister() {
   router.push('/')
 }
 
-// 初始化：填充记住的用户名
 const remembered = localStorage.getItem('rememberedUser')
 if (remembered) {
   loginForm.username = remembered
@@ -251,7 +254,6 @@ if (remembered) {
   width: 100%;
 }
 
-/* ===== 左侧品牌区 ===== */
 .login-left {
   flex: 1;
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
@@ -277,8 +279,8 @@ if (remembered) {
   margin-bottom: 16px;
 }
 
-.logo-icon {
-  font-size: 42px;
+.brand-mic {
+  flex-shrink: 0;
 }
 
 .brand-logo h1 {
@@ -308,11 +310,6 @@ if (remembered) {
   opacity: 0.9;
 }
 
-.feature-icon {
-  font-size: 22px;
-}
-
-/* 装饰圆 */
 .bg-decoration .circle {
   position: absolute;
   border-radius: 50%;
@@ -341,7 +338,6 @@ if (remembered) {
   transform: translateY(-50%);
 }
 
-/* ===== 右侧表单区 ===== */
 .login-right {
   flex: 1;
   display: flex;
@@ -373,7 +369,6 @@ if (remembered) {
   color: #64748b;
 }
 
-/* 表单 */
 .auth-form {
   background: #fff;
   border-radius: 16px;
@@ -409,8 +404,8 @@ if (remembered) {
 }
 
 .input-icon {
-  padding: 0 12px;
-  font-size: 16px;
+  margin: 0 10px;
+  color: #9ca3af;
   flex-shrink: 0;
 }
 
@@ -431,9 +426,15 @@ if (remembered) {
 .toggle-pwd {
   padding: 0 12px;
   cursor: pointer;
-  font-size: 16px;
+  color: #9ca3af;
   user-select: none;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.toggle-pwd:hover {
+  color: #6366f1;
 }
 
 .form-options {
@@ -520,8 +521,10 @@ if (remembered) {
 }
 
 .back-home {
-  display: block;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   margin-top: 16px;
   font-size: 13px;
   color: #94a3b8;
@@ -533,7 +536,6 @@ if (remembered) {
   color: #6366f1;
 }
 
-/* ===== 响应式 ===== */
 @media (max-width: 768px) {
   .login-left {
     display: none;

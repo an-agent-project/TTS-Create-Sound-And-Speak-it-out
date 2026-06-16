@@ -1,10 +1,10 @@
-<template>
+﻿<template>
   <div class="home-page">
     <!-- Hero -->
     <section class="hero">
       <div class="hero-content">
         <h1 class="hero-title">
-          <span class="hero-icon">🎧</span>
+          <Mic :size="40" class="hero-icon" />
           一键配音，让创作更简单
         </h1>
         <p class="hero-desc">
@@ -12,10 +12,10 @@
         </p>
         <div class="hero-actions">
           <router-link to="/workspace" class="btn btn-primary btn-lg">
-            🚀 立即开始创作
+            <Rocket :size="18" /> 立即开始创作
           </router-link>
           <router-link to="/voices" class="btn btn-secondary btn-lg">
-            🎙️ 浏览音色库
+            <Drama :size="18" /> 浏览音色库
           </router-link>
         </div>
       </div>
@@ -42,26 +42,26 @@
     <!-- How It Works -->
     <section class="section">
       <div class="section-title">
-        <span class="icon">⚡</span> 三步完成配音
+        <Sparkles :size="22" class="title-icon" /> 三步完成配音
       </div>
       <div class="steps">
         <div class="step-card">
           <div class="step-number">1</div>
-          <div class="step-icon">🎬</div>
+          <div class="step-icon"><Clapperboard :size="40" /></div>
           <h3>选择场景</h3>
-          <p>播客、知识讲解、故事叙述、情感朗读 — 选择最适合你内容的场景模板</p>
+          <p>播客、知识讲解、故事叙述、情感朗读… 选择最适合你内容的场景模板</p>
         </div>
-        <div class="step-arrow">→</div>
+        <div class="step-arrow">&rarr;</div>
         <div class="step-card">
           <div class="step-number">2</div>
-          <div class="step-icon">📝</div>
+          <div class="step-icon"><FileText :size="40" /></div>
           <h3>粘贴文本</h3>
           <p>直接输入或上传文本文件，智能分段自动为你处理排版</p>
         </div>
-        <div class="step-arrow">→</div>
+        <div class="step-arrow">&rarr;</div>
         <div class="step-card">
           <div class="step-number">3</div>
-          <div class="step-icon">🎧</div>
+          <div class="step-icon"><SlidersHorizontal :size="40" /></div>
           <h3>一键生成</h3>
           <p>选择音色、调整参数，一键生成专业级有声读物，即刻试听导出</p>
         </div>
@@ -71,7 +71,7 @@
     <!-- Scenes -->
     <section class="section">
       <div class="section-title">
-        <span class="icon">🎬</span> 创作场景
+        <Clapperboard :size="22" class="title-icon" /> 创作场景
       </div>
       <div class="grid grid-4">
         <SceneCard
@@ -86,7 +86,7 @@
     <!-- Featured Voices -->
     <section class="section">
       <div class="section-title">
-        <span class="icon">🎙️</span> 推荐音色
+        <Drama :size="22" class="title-icon" /> 推荐音色
       </div>
       <div class="grid grid-4">
         <VoiceCard
@@ -100,7 +100,7 @@
       </div>
       <div class="section-footer">
         <router-link to="/voices" class="btn btn-secondary">
-          查看全部音色 →
+          查看全部音色 &rarr;
         </router-link>
       </div>
     </section>
@@ -108,11 +108,11 @@
     <!-- Case Demos -->
     <section class="section">
       <div class="section-title">
-        <span class="icon">🎯</span> 效果案例
+        <Headphones :size="22" class="title-icon" /> 效果案例
       </div>
       <div class="grid grid-3">
         <div v-for="demo in demos" :key="demo.title" class="card demo-card">
-          <div class="demo-icon">{{ demo.icon }}</div>
+          <div class="demo-icon"><component :is="demo.lucideIcon" :size="36" /></div>
           <h3 class="demo-title">{{ demo.title }}</h3>
           <p class="demo-text">{{ demo.text }}</p>
           <div class="demo-tags">
@@ -130,6 +130,10 @@ import { useRouter } from "vue-router";
 import { useAppStore } from "../stores/app.js";
 import SceneCard from "../components/SceneCard.vue";
 import VoiceCard from "../components/VoiceCard.vue";
+import {
+  Mic, Rocket, Drama, Sparkles, Clapperboard, FileText, SlidersHorizontal,
+  Headphones, BookOpen, Library, Heart, Podcast
+} from 'lucide-vue-next'
 
 const router = useRouter();
 const store = useAppStore();
@@ -138,34 +142,34 @@ const scenes = [
   {
     id: "podcast",
     name: "播客模式",
-    icon: "🎙️",
-    description: "适合播客节目开场、话题讨论等轻松口语化场景",
-    defaultSpeed: 1.1,
+    iconComponent: Mic,
+    description: "适合播客节目、脱口秀类内容，语气自然随性",
     color: "#6366f1",
-  },
-  {
-    id: "knowledge",
-    name: "知识讲解",
-    icon: "📚",
-    description: "适合课程讲授、知识科普等正式专业场景",
-    defaultSpeed: 0.95,
-    color: "#10b981",
-  },
-  {
-    id: "story",
-    name: "故事叙述",
-    icon: "📖",
-    description: "适合故事讲述、小说朗读等富有表现力的场景",
     defaultSpeed: 1.0,
-    color: "#f59e0b",
   },
   {
-    id: "emotion",
-    name: "情感朗读",
-    icon: "💝",
-    description: "适合散文朗读、情感表达等温婉细腻的场景",
+    id: "lecture",
+    name: "知识讲解",
+    iconComponent: BookOpen,
+    description: "适合课程录制、知识分享，语气沉稳专业",
+    color: "#10b981",
     defaultSpeed: 0.9,
-    color: "#ec4899",
+  },
+  {
+    id: "storytelling",
+    name: "故事叙述",
+    iconComponent: Library,
+    description: "适合有声小说、儿童故事，情感丰富饱满",
+    color: "#f59e0b",
+    defaultSpeed: 0.85,
+  },
+  {
+    id: "emotional",
+    name: "情感朗读",
+    iconComponent: Heart,
+    description: "适合散文诗歌、情感表达，语调柔和动人",
+    color: "#ef4444",
+    defaultSpeed: 0.8,
   },
 ];
 
@@ -210,21 +214,21 @@ const featuredVoices = [
 
 const demos = [
   {
-    icon: "🎙️",
+    lucideIcon: Podcast,
     title: "播客节目开场",
     text: "大家好，欢迎收听本期节目，今天我们要聊的话题是人工智能如何改变内容创作...",
     scene: "播客模式",
     voice: "云希 · 磁性男声",
   },
   {
-    icon: "📚",
+    lucideIcon: BookOpen,
     title: "知识课程讲解",
     text: "今天我们学习Python的基础语法，首先了解变量的概念。变量就像是一个容器，用来存储数据...",
     scene: "知识讲解",
     voice: "晓晓 · 温柔女声",
   },
   {
-    icon: "📖",
+    lucideIcon: Sparkles,
     title: "儿童故事朗读",
     text: "从前有一座山，山里住着一位老爷爷，他每天都会给小动物们讲有趣的故事...",
     scene: "故事叙述",
@@ -253,11 +257,15 @@ function goToWorkspace(sceneId) {
   color: var(--text);
   margin-bottom: 16px;
   line-height: 1.3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .hero-icon {
-  display: inline-block;
-  margin-right: 8px;
+  color: var(--primary);
+  flex-shrink: 0;
 }
 
 .hero-desc {
@@ -300,6 +308,12 @@ function goToWorkspace(sceneId) {
   margin-top: 4px;
 }
 
+/* Section title icon */
+.title-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
 /* Steps */
 .steps {
   display: flex;
@@ -335,8 +349,10 @@ function goToWorkspace(sceneId) {
 }
 
 .step-icon {
-  font-size: 40px;
   margin: 8px 0 12px;
+  color: var(--primary);
+  display: flex;
+  justify-content: center;
 }
 
 .step-card h3 {
@@ -363,8 +379,8 @@ function goToWorkspace(sceneId) {
 }
 
 .demo-icon {
-  font-size: 36px;
   margin-bottom: 12px;
+  color: var(--primary);
 }
 
 .demo-title {
@@ -411,3 +427,4 @@ function goToWorkspace(sceneId) {
   }
 }
 </style>
+

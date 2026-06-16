@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <div class="my-works-page">
     <div class="page-header">
-      <h1 class="page-title">📂 我的作品</h1>
+      <h1 class="page-title"><BarChart3 :size="28" class="title-icon" /> 我的作品</h1>
       <p class="page-subtitle">
         已保存 {{ store.works.length }} 个配音作品
       </p>
@@ -23,11 +23,11 @@
 
     <!-- Empty -->
     <div v-else class="empty-state">
-      <div class="icon">📭</div>
+      <FolderOpen :size="56" class="empty-icon" />
       <h3>还没有作品</h3>
       <p>前往创作工作台开始你的第一个配音吧</p>
       <router-link to="/workspace" class="btn btn-primary btn-lg" style="margin-top: 16px;">
-        🚀 开始创作
+        <Rocket :size="18" /> 开始创作
       </router-link>
     </div>
 
@@ -47,14 +47,14 @@
     <div v-if="previewWork" class="confirm-overlay" @click.self="previewWork = null">
       <div class="preview-modal">
         <div class="modal-header">
-          <h3>🎧 试听作品</h3>
-          <button class="close-btn" @click="previewWork = null">✕</button>
+          <h3><PlayCircle :size="22" class="section-icon" /> 试听作品</h3>
+          <button class="close-btn" @click="previewWork = null"><X :size="18" /></button>
         </div>
         <div class="modal-body">
           <div class="preview-info">
             <strong>{{ previewWork.title }}</strong>
             <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">
-              {{ previewWork.sceneName }} · {{ previewWork.voiceName }} · 时长约 {{ previewWork.duration }} 秒
+              {{ previewWork.sceneName }} · {{ previewWork.voiceName }} · 时长约{{ previewWork.duration }} 秒
             </p>
           </div>
           <AudioPlayer
@@ -81,6 +81,7 @@ import { useRouter } from "vue-router";
 import { useAppStore } from "../stores/app.js";
 import WorkCard from "../components/WorkCard.vue";
 import AudioPlayer from "../components/AudioPlayer.vue";
+import { BarChart3, FolderOpen, Rocket, PlayCircle, X } from 'lucide-vue-next'
 
 const router = useRouter();
 const store = useAppStore();
@@ -108,6 +109,22 @@ function editWork(work) {
 </script>
 
 <style scoped>
+.title-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.section-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.empty-icon {
+  color: var(--text-muted);
+  opacity: 0.4;
+  margin-bottom: 16px;
+}
+
 .confirm-overlay {
   position: fixed;
   inset: 0;
@@ -137,6 +154,9 @@ function editWork(work) {
 .preview-modal h3 {
   font-size: 18px;
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .confirm-modal p {
@@ -161,19 +181,15 @@ function editWork(work) {
 
 .close-btn {
   background: none;
-  font-size: 18px;
   color: var(--text-muted);
   padding: 4px 8px;
   border-radius: var(--radius-xs);
+  display: flex;
 }
 
 .close-btn:hover {
   background: var(--bg);
   color: var(--text);
-}
-
-.modal-body {
-  /*  */
 }
 
 .preview-info {

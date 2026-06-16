@@ -1,8 +1,10 @@
-<template>
+﻿<template>
   <div class="card voice-card" :class="{ featured: voice.isRecommended }">
     <div class="voice-top">
       <div class="voice-avatar" :class="voice.gender">
-        {{ voice.gender === 'male' ? '👨' : voice.gender === 'female' ? '👩' : '👶' }}
+        <User v-if="voice.gender === 'male'" :size="24" />
+        <User v-else-if="voice.gender === 'female'" :size="24" />
+        <Baby v-else :size="24" />
       </div>
       <div class="voice-info">
         <h4 class="voice-name">{{ voice.name }}</h4>
@@ -12,13 +14,14 @@
         </div>
       </div>
       <button class="fav-btn" :class="{ active: isFavorite }" @click.stop="$emit('toggleFavorite')">
-        {{ isFavorite ? '❤️' : '🤍' }}
+        <Star v-if="isFavorite" :size="20" fill="var(--warning)" color="var(--warning)" />
+        <Heart v-else :size="20" />
       </button>
     </div>
     <p class="voice-desc">{{ voice.description }}</p>
     <div class="voice-actions">
       <button v-if="showPreview" class="btn btn-secondary btn-sm btn-block" @click.stop="$emit('preview')">
-        ▶ 试听
+        <Play :size="14" /> 试听
       </button>
       <button v-if="showSelect" class="btn btn-primary btn-sm btn-block" @click.stop="$emit('select')">
         选择此音色
@@ -28,6 +31,8 @@
 </template>
 
 <script setup>
+import { User, Baby, Star, Heart, Play } from 'lucide-vue-next'
+
 defineProps({
   voice: { type: Object, required: true },
   isFavorite: { type: Boolean, default: false },
@@ -62,18 +67,20 @@ defineEmits(["toggleFavorite", "preview", "select"]);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
   flex-shrink: 0;
 }
 
 .voice-avatar.male {
   background: #dbeafe;
+  color: #3b82f6;
 }
 .voice-avatar.female {
   background: #fce7f3;
+  color: #ec4899;
 }
 .voice-avatar.child {
   background: #fef3c7;
+  color: #f59e0b;
 }
 
 .voice-info {
@@ -113,14 +120,18 @@ defineEmits(["toggleFavorite", "preview", "select"]);
 
 .fav-btn {
   background: none;
-  font-size: 20px;
   padding: 4px;
   border-radius: 50%;
   flex-shrink: 0;
   transition: transform var(--transition);
+  color: var(--text-muted);
 }
 
 .fav-btn:hover {
   transform: scale(1.2);
+}
+
+.fav-btn.active {
+  color: var(--warning);
 }
 </style>

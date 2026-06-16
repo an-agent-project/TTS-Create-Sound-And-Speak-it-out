@@ -1,14 +1,15 @@
-<template>
+﻿<template>
   <div class="audio-player">
     <div class="player-controls">
       <button class="player-btn" @click="$emit('prev')" title="上一个">
-        ⏮
+        <SkipBack :size="20" />
       </button>
       <button class="player-btn play-btn" @click="$emit('toggle-play')" title="播放/暂停">
-        {{ isPlaying ? '⏸' : '▶️' }}
+        <Pause v-if="isPlaying" :size="24" />
+        <Play v-else :size="24" />
       </button>
       <button class="player-btn" @click="$emit('next')" title="下一个">
-        ⏭
+        <SkipForward :size="20" />
       </button>
     </div>
     <div class="player-progress">
@@ -20,7 +21,7 @@
     </div>
     <div class="player-extra">
       <div class="volume-control">
-        <span>🔊</span>
+        <Volume2 :size="18" />
         <input
           type="range"
           class="slider"
@@ -31,7 +32,7 @@
         />
       </div>
       <a v-if="audioUrl" :href="audioUrl" download class="btn btn-secondary btn-sm">
-        ⬇ 下载
+        <Download :size="14" /> 下载
       </a>
     </div>
   </div>
@@ -39,6 +40,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { SkipBack, SkipForward, Play, Pause, Volume2, Download } from 'lucide-vue-next'
 
 const props = defineProps({
   isPlaying: { type: Boolean, default: false },
@@ -56,33 +58,33 @@ const emit = defineEmits([
   "volumeChange",
 ]);
 
-function formatTime(s) {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
+function formatTime(seconds) {
+  if (!seconds || isNaN(seconds) || seconds < 0) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 const progressPercent = computed(() => {
-  return props.duration > 0 ? (props.currentTime / props.duration) * 100 : 0;
+  if (!props.duration || props.duration === 0) return 0;
+  return Math.min((props.currentTime / props.duration) * 100, 100);
 });
 
 function onSeek(e) {
   const rect = e.currentTarget.getBoundingClientRect();
-  const ratio = (e.clientX - rect.left) / rect.width;
-  emit("seek", ratio);
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  emit("seek", ratio * props.duration);
 }
 </script>
 
 <style scoped>
 .audio-player {
-  background: var(--bg);
-  border-radius: var(--radius);
-  padding: 16px 20px;
-  border: 1px solid var(--border);
+  padding: 8px 0;
 }
 
 .player-controls {
   display: flex;
+  align-items: center;
   justify-content: center;
   gap: 16px;
   margin-bottom: 12px;
@@ -90,18 +92,32 @@ function onSeek(e) {
 
 .player-btn {
   background: none;
-  font-size: 22px;
-  padding: 4px;
+  border: none;
+  color: var(--text-secondary);
+  padding: 6px;
   border-radius: 50%;
-  transition: transform var(--transition);
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .player-btn:hover {
-  transform: scale(1.15);
+  color: var(--primary);
+  background: var(--primary-light);
 }
 
 .play-btn {
-  font-size: 36px;
+  width: 48px;
+  height: 48px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 50%;
+}
+
+.play-btn:hover {
+  background: var(--primary-hover);
+  color: #fff;
 }
 
 .player-progress {
@@ -114,9 +130,8 @@ function onSeek(e) {
 .player-time {
   font-size: 12px;
   color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
   min-width: 36px;
-  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-bar {
@@ -139,7 +154,6 @@ function onSeek(e) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
 }
 
 .volume-control {
@@ -147,13 +161,24 @@ function onSeek(e) {
   align-items: center;
   gap: 8px;
   flex: 1;
-}
-
-.volume-control span {
-  font-size: 16px;
+  color: var(--text-muted);
 }
 
 .volume-control .slider {
-  max-width: 100px;
+  flex: 1;
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+}
+
+.volume-control .slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
 }
 </style>

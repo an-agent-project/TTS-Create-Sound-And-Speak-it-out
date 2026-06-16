@@ -2,19 +2,18 @@
   <header class="app-header">
     <div class="header-inner">
       <router-link to="/" class="logo">
-        <span class="logo-icon">🎙️</span>
+        <Mic class="logo-icon" :size="24" />
         <span class="logo-text">有声读物智能生成系统</span>
       </router-link>
       <nav class="nav-links">
         <router-link to="/workspace" class="nav-link">
-          <span>✏️</span> 创作工作台
+          <Pen :size="16" /> 创作工作台
         </router-link>
         <router-link to="/voices" class="nav-link">
-          <span>🎭</span> 音色库
+          <Drama :size="16" /> 音色库
         </router-link>
       </nav>
       <div class="header-actions">
-        <!-- Logged in state -->
         <template v-if="store.isLoggedIn">
           <router-link to="/profile" class="user-btn">
             <div class="user-avatar-mini">
@@ -24,7 +23,6 @@
             <span class="user-name">{{ store.user.username }}</span>
           </router-link>
         </template>
-        <!-- Not logged in -->
         <template v-else>
           <router-link to="/login" class="btn btn-login">
             登录
@@ -36,6 +34,7 @@
 </template>
 
 <script setup>
+import { Mic, Pen, Drama } from 'lucide-vue-next'
 import { useAppStore } from "../stores/app.js";
 
 const store = useAppStore();
@@ -69,10 +68,12 @@ const store = useAppStore();
   font-size: 17px;
   color: var(--text);
   flex-shrink: 0;
+  text-decoration: none;
 }
 
 .logo-icon {
-  font-size: 24px;
+  color: var(--primary);
+  flex-shrink: 0;
 }
 
 .nav-links {
@@ -90,7 +91,7 @@ const store = useAppStore();
   transition: all var(--transition);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .nav-link:hover,
@@ -99,7 +100,6 @@ const store = useAppStore();
   background: var(--primary-light);
 }
 
-/* Login button - blue background, white text */
 .btn-login {
   background: var(--primary);
   color: #ffffff;
@@ -118,7 +118,6 @@ const store = useAppStore();
   box-shadow: var(--shadow-md);
 }
 
-/* User button */
 .user-btn {
   display: flex;
   align-items: center;

@@ -1,13 +1,13 @@
-<template>
+﻿<template>
   <div class="text-editor">
     <div class="editor-toolbar">
       <span class="toolbar-info">
         字数：<strong>{{ charCount }}</strong>
-        {{ charCount > 500 ? '| 预估时长：~' + estimatedDuration + ' 分钟' : '' }}
+        {{ charCount > 500 ? '| 预计时长：约' + estimatedDuration + ' 分钟' : '' }}
       </span>
       <div class="toolbar-actions">
         <button class="btn btn-secondary btn-sm" @click="triggerFileInput">
-          📁 本地文件
+          <FileUp :size="14" /> 本地文件
         </button>
         <input
           ref="fileInput"
@@ -27,13 +27,14 @@
       rows="14"
     ></textarea>
     <div class="editor-hint" v-if="showHint && charCount > 0">
-      💡 提示：系统将自动为您的文本进行智能分段，生成自然流畅的语音
+      <Lightbulb :size="14" /> 提示：系统将自动为您的文本进行智能分段，生成自然流畅的语音
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from "vue";
+import { FileUp, Lightbulb } from 'lucide-vue-next'
 
 const props = defineProps({
   modelValue: { type: String, default: "" },
@@ -63,7 +64,6 @@ function handleFileUpload(e) {
     alert("文件读取失败，请重试。");
   };
   reader.readAsText(file, "UTF-8");
-  // Reset so same file can be re-selected
   e.target.value = "";
 }
 </script>
@@ -117,6 +117,9 @@ function handleFileUpload(e) {
 }
 
 .editor-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 10px 16px;
   font-size: 13px;
   color: var(--text-muted);
