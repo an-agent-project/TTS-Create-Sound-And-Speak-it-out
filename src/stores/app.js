@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+﻿import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 
 export const useAppStore = defineStore("app", () => {
@@ -25,50 +25,78 @@ export const useAppStore = defineStore("app", () => {
     username: "",
     email: "",
     avatar: "",
+    phone: "",
     registeredAt: "",
   });
 
-  function login(userData) {
+  function login(username, password) {
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const found = users.find(
+      (u) => u.username === username && u.password === password
+    );
+    if (!found) {
+      return { success: false, message: "账户名或密码错误" };
+    }
     isLoggedIn.value = true;
     user.value = {
-      id: userData.id || Date.now().toString(),
-      username: userData.username || "鐢ㄦ埛",
-      email: userData.email || "",
-      avatar: userData.avatar || "",
-      registeredAt: userData.registeredAt || new Date().toISOString(),
+      id: found.id,
+      username: found.username,
+      email: found.email || "",
+      avatar: found.avatar || "",
+      phone: found.phone || "",
+      registeredAt: found.registeredAt,
     };
-    // Persist to localStorage
     localStorage.setItem("user", JSON.stringify(user.value));
     localStorage.setItem("isLoggedIn", "true");
+    return { success: true };
   }
 
-  function register(userData) {
+  function register(username, password) {
+    if (!username || !password) {
+      return { success: false, message: "账户名和密码不能为空" };
+    }
+    if (password.length < 4) {
+      return { success: false, message: "密码长度不能少于4位" };
+    }
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    if (users.find((u) => u.username === username)) {
+      return { success: false, message: "该账户名已被注册" };
+    }
     const newUser = {
       id: Date.now().toString(),
-      username: userData.username || "鐢ㄦ埛",
-      email: userData.email || "",
-      password: userData.password || "",
+      username,
+      email: "",
+      password,
       avatar: "",
+      phone: "",
       registeredAt: new Date().toISOString(),
     };
-    // Store users in localStorage
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
     users.push(newUser);
     localStorage.setItem("users", JSON.stringify(users));
-
-    login(newUser);
+    // Auto login after register
+    isLoggedIn.value = true;
+    user.value = {
+      id: newUser.id,
+      username: newUser.username,
+      email: newUser.email,
+      avatar: newUser.avatar,
+      phone: newUser.phone,
+      registeredAt: newUser.registeredAt,
+    };
+    localStorage.setItem("user", JSON.stringify(user.value));
+    localStorage.setItem("isLoggedIn", "true");
+    return { success: true };
   }
 
   function logout() {
     isLoggedIn.value = false;
-    user.value = { id: "", username: "", email: "", avatar: "", registeredAt: "" };
+    user.value = { id: "", username: "", email: "", avatar: "", phone: "", registeredAt: "" };
     localStorage.removeItem("user");
     localStorage.removeItem("isLoggedIn");
   }
 
   function updatePhone(phoneNumber) {
     user.value.phone = phoneNumber;
-    // Also update in users list
     const users = JSON.parse(localStorage.getItem("users") || "[]");
     const idx = users.findIndex((u) => u.id === user.value.id);
     if (idx > -1) {
@@ -80,6 +108,12 @@ export const useAppStore = defineStore("app", () => {
 
   function updateAvatar(avatarData) {
     user.value.avatar = avatarData;
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const idx = users.findIndex((u) => u.id === user.value.id);
+    if (idx > -1) {
+      users[idx].avatar = avatarData;
+      localStorage.setItem("users", JSON.stringify(users));
+    }
     localStorage.setItem("user", JSON.stringify(user.value));
   }
 
@@ -95,7 +129,6 @@ export const useAppStore = defineStore("app", () => {
     }
   }
 
-  // Call init
   initFromStorage();
 
   function addWork(work) {
@@ -152,7 +185,8 @@ export const useAppStore = defineStore("app", () => {
     login,
     register,
     logout,
-    updatePhone, updateAvatar,
+    updatePhone,
+    updateAvatar,
     addWork,
     deleteWork,
     toggleFavoriteVoice,

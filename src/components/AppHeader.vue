@@ -1,16 +1,16 @@
-<template>
+﻿<template>
   <header class="app-header">
     <div class="header-inner">
       <router-link to="/" class="logo">
-        <span class="logo-icon">🎧</span>
+        <span class="logo-icon">🎙️</span>
         <span class="logo-text">有声读物智能生成系统</span>
       </router-link>
       <nav class="nav-links">
         <router-link to="/workspace" class="nav-link">
-          <span>✨</span> 创作工作台
+          <span>✏️</span> 创作工作台
         </router-link>
         <router-link to="/voices" class="nav-link">
-          <span>🎙️</span> 音色库
+          <span>🎭</span> 音色库
         </router-link>
       </nav>
       <div class="header-actions">
@@ -26,25 +26,19 @@
         </template>
         <!-- Not logged in -->
         <template v-else>
-          <button class="btn btn-login" @click="showAuth = true">
+          <router-link to="/login" class="btn btn-login">
             登录
-          </button>
+          </router-link>
         </template>
       </div>
     </div>
-
-    <!-- Auth Modal -->
-    <UserAuthModal v-if="showAuth" @close="showAuth = false" />
   </header>
 </template>
 
 <script setup>
-import { ref } from "vue";
 import { useAppStore } from "../stores/app.js";
-import UserAuthModal from "./UserAuthModal.vue";
 
 const store = useAppStore();
-const showAuth = ref(false);
 </script>
 
 <style scoped>
@@ -115,6 +109,7 @@ const showAuth = ref(false);
   font-weight: 600;
   transition: all var(--transition);
   white-space: nowrap;
+  text-decoration: none;
 }
 
 .btn-login:hover {

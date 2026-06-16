@@ -1,10 +1,16 @@
-import { createRouter, createWebHistory } from "vue-router";
+﻿import { createRouter, createWebHistory } from "vue-router";
 
 const routes = [
   {
     path: "/",
     name: "Home",
     component: () => import("../views/HomePage.vue"),
+  },
+  {
+    path: "/login",
+    name: "Login",
+    component: () => import("../views/LoginPage.vue"),
+    meta: { hideLayout: true },
   },
   {
     path: "/workspace",
@@ -39,7 +45,7 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth) {
     const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
     if (!isLoggedIn) {
-      next("/");
+      next("/login");
       return;
     }
   }
