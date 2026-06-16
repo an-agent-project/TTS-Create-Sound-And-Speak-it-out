@@ -6,7 +6,16 @@
         {{ charCount > 500 ? '| 预估时长：~' + estimatedDuration + ' 分钟' : '' }}
       </span>
       <div class="toolbar-actions">
-        <button class="btn btn-secondary btn-sm" @click="$emit('upload')">📁 上传文件</button>
+        <button class="btn btn-secondary btn-sm" @click="triggerFileInput">
+          📁 本地文件
+        </button>
+        <input
+          ref="fileInput"
+          type="file"
+          accept=".txt,.md,.html,.json,.csv"
+          style="display:none"
+          @change="handleFileUpload"
+        />
         <button class="btn btn-secondary btn-sm" @click="$emit('clear')" :disabled="!modelValue">清空</button>
       </div>
     </div>
@@ -24,7 +33,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed } from "vue";
 
 const props = defineProps({
   modelValue: { type: String, default: "" },
@@ -32,10 +41,31 @@ const props = defineProps({
   showHint: { type: Boolean, default: true },
 });
 
-defineEmits(["update:modelValue", "upload", "clear"]);
+const emit = defineEmits(["update:modelValue", "upload", "clear"]);
+
+const fileInput = ref(null);
 
 const charCount = computed(() => props.modelValue.length);
 const estimatedDuration = computed(() => Math.ceil(props.modelValue.length / 300));
+
+function triggerFileInput() {
+  fileInput.value?.click();
+}
+
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    emit("update:modelValue", ev.target.result);
+  };
+  reader.onerror = () => {
+    alert("文件读取失败，请重试。");
+  };
+  reader.readAsText(file, "UTF-8");
+  // Reset so same file can be re-selected
+  e.target.value = "";
+}
 </script>
 
 <style scoped>

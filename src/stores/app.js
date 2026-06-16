@@ -18,6 +18,86 @@ export const useAppStore = defineStore("app", () => {
     bgmVolume: 30,
   });
 
+  // User auth state
+  const isLoggedIn = ref(false);
+  const user = ref({
+    id: "",
+    username: "",
+    email: "",
+    avatar: "",
+    registeredAt: "",
+  });
+
+  function login(userData) {
+    isLoggedIn.value = true;
+    user.value = {
+      id: userData.id || Date.now().toString(),
+      username: userData.username || "鐢ㄦ埛",
+      email: userData.email || "",
+      avatar: userData.avatar || "",
+      registeredAt: userData.registeredAt || new Date().toISOString(),
+    };
+    // Persist to localStorage
+    localStorage.setItem("user", JSON.stringify(user.value));
+    localStorage.setItem("isLoggedIn", "true");
+  }
+
+  function register(userData) {
+    const newUser = {
+      id: Date.now().toString(),
+      username: userData.username || "鐢ㄦ埛",
+      email: userData.email || "",
+      password: userData.password || "",
+      avatar: "",
+      registeredAt: new Date().toISOString(),
+    };
+    // Store users in localStorage
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    users.push(newUser);
+    localStorage.setItem("users", JSON.stringify(users));
+
+    login(newUser);
+  }
+
+  function logout() {
+    isLoggedIn.value = false;
+    user.value = { id: "", username: "", email: "", avatar: "", registeredAt: "" };
+    localStorage.removeItem("user");
+    localStorage.removeItem("isLoggedIn");
+  }
+
+  function updatePhone(phoneNumber) {
+    user.value.phone = phoneNumber;
+    // Also update in users list
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const idx = users.findIndex((u) => u.id === user.value.id);
+    if (idx > -1) {
+      users[idx].phone = phoneNumber;
+      localStorage.setItem("users", JSON.stringify(users));
+    }
+    localStorage.setItem("user", JSON.stringify(user.value));
+  }
+
+  function updateAvatar(avatarData) {
+    user.value.avatar = avatarData;
+    localStorage.setItem("user", JSON.stringify(user.value));
+  }
+
+  // Init from localStorage
+  function initFromStorage() {
+    const stored = localStorage.getItem("isLoggedIn");
+    if (stored === "true") {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      if (userData.id) {
+        isLoggedIn.value = true;
+        user.value = userData;
+      }
+    }
+  }
+
+  // Call init
+  initFromStorage();
+
   function addWork(work) {
     works.value.unshift({
       id: Date.now().toString(),
@@ -67,6 +147,12 @@ export const useAppStore = defineStore("app", () => {
     textContent,
     currentWork,
     settings,
+    isLoggedIn,
+    user,
+    login,
+    register,
+    logout,
+    updatePhone, updateAvatar,
     addWork,
     deleteWork,
     toggleFavoriteVoice,
