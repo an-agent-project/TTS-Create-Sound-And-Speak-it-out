@@ -1,9 +1,9 @@
 <template>
-  <div class="voice-preview-overlay" @click.self="$emit('close')">
+  <div class="voice-preview-overlay" @click.self="closePreview">
     <div class="voice-preview-modal">
       <div class="modal-header">
         <h3>🎙️ 音色试听</h3>
-        <button class="close-btn" @click="$emit('close')">✕</button>
+        <button class="close-btn" @click="closePreview">✕</button>
       </div>
       <div class="modal-body">
         <div class="preview-voice-info">
@@ -20,20 +20,25 @@
 
         <div class="preview-sample">
           <div class="sample-title">📝 试听文本</div>
-          <p class="sample-text">"大家好，欢迎收听本期节目。今天我们要一起探索一个非常有趣的话题。让我们开始吧！"</p>
+          <p class="sample-text">"{{ sampleText }}"</p>
         </div>
 
         <AudioPlayer
           :is-playing="isPlaying"
-          :current-time="0"
-          :duration="15"
-          :volume="80"
-          @toggle-play="isPlaying = !isPlaying"
+          :current-time="currentTime"
+          :duration="duration"
+          :volume="volume"
+          :audio-url="audioUrl"
+          @toggle-play="togglePreview"
+          @seek="seekPreview"
+          @volume-change="setVolume"
         />
+        <p v-if="isLoading" class="preview-status">正在生成试听音频...</p>
+        <p v-if="errorMessage" class="preview-error">{{ errorMessage }}</p>
 
         <div class="modal-actions">
-          <button class="btn btn-secondary" @click="$emit('close')">关闭</button>
-          <button class="btn btn-primary" @click="$emit('select'); $emit('close')">
+          <button class="btn btn-secondary" @click="closePreview">关闭</button>
+          <button class="btn btn-primary" @click="selectVoice">
             ✅ 选择此音色
           </button>
         </div>
@@ -43,16 +48,145 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { onBeforeUnmount, ref, watch } from "vue";
 import AudioPlayer from "./AudioPlayer.vue";
 
-defineProps({
+const props = defineProps({
   voice: { type: Object, required: true },
 });
 
-defineEmits(["close", "select"]);
+const emit = defineEmits(["close", "select"]);
 
 const isPlaying = ref(false);
+const isLoading = ref(false);
+const currentTime = ref(0);
+const duration = ref(15);
+const volume = ref(80);
+const audioUrl = ref("");
+const errorMessage = ref("");
+let audio = null;
+
+const sampleText =
+  "大家好，欢迎收听本期节目。今天我们要一起探索一个非常有趣的话题。让我们开始吧！";
+
+async function ensurePreviewAudio() {
+  if (audioUrl.value) return;
+
+  isLoading.value = true;
+  errorMessage.value = "";
+
+  try {
+    const response = await fetch("/api/tts/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: sampleText,
+        voiceId: props.voice.id,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("试听音频生成失败");
+    }
+
+    const data = await response.json();
+    audioUrl.value = data.audioUrl;
+    duration.value = data.duration || duration.value;
+  } catch (error) {
+    errorMessage.value = error.message || "试听音频生成失败";
+    throw error;
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+function bindAudioEvents() {
+  audio.addEventListener("timeupdate", () => {
+    currentTime.value = audio.currentTime || 0;
+  });
+  audio.addEventListener("loadedmetadata", () => {
+    if (Number.isFinite(audio.duration)) {
+      duration.value = audio.duration;
+    }
+  });
+  audio.addEventListener("ended", () => {
+    isPlaying.value = false;
+    currentTime.value = 0;
+  });
+}
+
+async function togglePreview() {
+  if (isLoading.value) return;
+
+  if (audio && isPlaying.value) {
+    audio.pause();
+    isPlaying.value = false;
+    return;
+  }
+
+  try {
+    await ensurePreviewAudio();
+
+    if (!audio) {
+      audio = new Audio(audioUrl.value);
+      audio.volume = volume.value / 100;
+      bindAudioEvents();
+    }
+
+    await audio.play();
+    isPlaying.value = true;
+  } catch {
+    isPlaying.value = false;
+  }
+}
+
+function seekPreview(ratio) {
+  if (!audio || !duration.value) return;
+  const nextTime = Math.max(0, Math.min(1, ratio)) * duration.value;
+  audio.currentTime = nextTime;
+  currentTime.value = nextTime;
+}
+
+function setVolume(nextVolume) {
+  volume.value = Number(nextVolume);
+  if (audio) {
+    audio.volume = volume.value / 100;
+  }
+}
+
+function stopPreview() {
+  if (!audio) return;
+  audio.pause();
+  audio.currentTime = 0;
+  isPlaying.value = false;
+  currentTime.value = 0;
+}
+
+function closePreview() {
+  stopPreview();
+  emit("close");
+}
+
+function selectVoice() {
+  stopPreview();
+  emit("select");
+  emit("close");
+}
+
+watch(
+  () => props.voice.id,
+  () => {
+    stopPreview();
+    audio = null;
+    audioUrl.value = "";
+    errorMessage.value = "";
+    duration.value = 15;
+  }
+);
+
+onBeforeUnmount(() => {
+  stopPreview();
+});
 </script>
 
 <style scoped>
@@ -154,6 +288,20 @@ const isPlaying = ref(false);
   font-size: 15px;
   line-height: 1.7;
   color: var(--text);
+}
+
+.preview-status,
+.preview-error {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.preview-status {
+  color: var(--text-secondary);
+}
+
+.preview-error {
+  color: var(--danger);
 }
 
 .modal-actions {

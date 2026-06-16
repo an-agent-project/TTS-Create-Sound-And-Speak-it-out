@@ -49,7 +49,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits([
-  "togglePlay",
+  "toggle-play",
   "prev",
   "next",
   "seek",

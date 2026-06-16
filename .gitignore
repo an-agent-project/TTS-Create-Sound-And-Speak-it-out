@@ -1,1 +1,27 @@
-node_modules/\r\ndist/\r\n.DS_Store\r\n*.local\r\n.vite/\r\n
+# Node / Vite
+node_modules/
+dist/
+.vite/
+
+# Local Python environment
+.venv/
+
+# Python backend artifacts
+__pycache__/
+.pytest_cache/
+*.pyc
+*.log
+backend/dev.db
+
+# Runtime-generated preview audio
+backend/static/previews/*.mp3
+backend/static/previews/*.tmp
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+*.local
