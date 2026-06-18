@@ -7,9 +7,13 @@
       </div>
       <div class="modal-body">
         <div class="preview-voice-info">
-          <div class="preview-avatar">{{ voice.gender === 'male' ? '👨' : voice.gender === 'female' ? '👩' : '👶' }}</div>
+          <div class="preview-avatar" :class="voice.gender">
+            <User v-if="voice.gender === 'male'" :size="30" />
+            <User v-else-if="voice.gender === 'female'" :size="30" />
+            <Baby v-else :size="30" />
+          </div>
           <div>
-            <h4>{{ voice.name }}</h4>
+            <strong>{{ voice.name }}</strong>
             <div class="voice-meta">
               <span class="tag tag-primary">{{ voice.style }}</span>
               <span class="tag tag-success">{{ voice.category }}</span>
@@ -17,12 +21,11 @@
           </div>
         </div>
         <p class="preview-desc">{{ voice.description }}</p>
-
+        <div class="preview-sample">
         <div class="preview-sample">
           <div class="sample-title">📝 试听文本</div>
           <p class="sample-text">"{{ sampleText }}"</p>
         </div>
-
         <AudioPlayer
           :is-playing="isPlaying"
           :current-time="currentTime"
@@ -45,11 +48,13 @@
       </div>
     </div>
   </div>
+  </div>
 </template>
 
 <script setup>
 import { onBeforeUnmount, ref, watch } from "vue";
 import AudioPlayer from "./AudioPlayer.vue";
+import { User, Baby, X, Check } from 'lucide-vue-next'
 
 const props = defineProps({
   voice: { type: Object, required: true },
@@ -225,10 +230,10 @@ onBeforeUnmount(() => {
 
 .close-btn {
   background: none;
-  font-size: 18px;
   color: var(--text-muted);
   padding: 4px 8px;
   border-radius: var(--radius-xs);
+  display: flex;
 }
 
 .close-btn:hover {
@@ -248,7 +253,6 @@ onBeforeUnmount(() => {
 }
 
 .preview-avatar {
-  font-size: 36px;
   width: 56px;
   height: 56px;
   display: flex;
@@ -256,6 +260,19 @@ onBeforeUnmount(() => {
   justify-content: center;
   background: var(--bg);
   border-radius: 14px;
+}
+
+.preview-avatar.male {
+  background: #dbeafe;
+  color: #3b82f6;
+}
+.preview-avatar.female {
+  background: #fce7f3;
+  color: #ec4899;
+}
+.preview-avatar.child {
+  background: #fef3c7;
+  color: #f59e0b;
 }
 
 .voice-meta {
@@ -312,11 +329,7 @@ onBeforeUnmount(() => {
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 </style>

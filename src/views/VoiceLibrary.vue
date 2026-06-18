@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <div class="voice-library-page">
     <div class="page-header">
-      <h1 class="page-title">🎙️ 音色库</h1>
+      <h1 class="page-title"><Drama :size="28" class="title-icon" /> 音色库</h1>
       <p class="page-subtitle">浏览全部音色，试听并收藏你喜欢的声音</p>
     </div>
 
@@ -10,44 +10,24 @@
       <div class="filter-group">
         <label class="filter-label">性别</label>
         <div class="filter-options">
-          <button
-            class="filter-btn"
-            :class="{ active: filterGender === 'all' }"
-            @click="filterGender = 'all'"
-          >
+          <button class="filter-btn" :class="{ active: filterGender === 'all' }" @click="filterGender = 'all'">
             全部
           </button>
-          <button
-            class="filter-btn"
-            :class="{ active: filterGender === 'female' }"
-            @click="filterGender = 'female'"
-          >
-            👩 女声
+          <button class="filter-btn" :class="{ active: filterGender === 'female' }" @click="filterGender = 'female'">
+            <User :size="14" /> 女声
           </button>
-          <button
-            class="filter-btn"
-            :class="{ active: filterGender === 'male' }"
-            @click="filterGender = 'male'"
-          >
-            👨 男声
+          <button class="filter-btn" :class="{ active: filterGender === 'male' }" @click="filterGender = 'male'">
+            <User :size="14" /> 男声
           </button>
-          <button
-            class="filter-btn"
-            :class="{ active: filterGender === 'child' }"
-            @click="filterGender = 'child'"
-          >
-            👶 童声
+          <button class="filter-btn" :class="{ active: filterGender === 'child' }" @click="filterGender = 'child'">
+            <Baby :size="14" /> 童声
           </button>
         </div>
       </div>
       <div class="filter-group">
         <label class="filter-label">类别</label>
         <div class="filter-options">
-          <button
-            class="filter-btn"
-            :class="{ active: filterCategory === 'all' }"
-            @click="filterCategory = 'all'"
-          >
+          <button class="filter-btn" :class="{ active: filterCategory === 'all' }" @click="filterCategory = 'all'">
             全部
           </button>
           <button
@@ -67,7 +47,8 @@
           :class="{ active: showFavoritesOnly }"
           @click="showFavoritesOnly = !showFavoritesOnly"
         >
-          ❤️ {{ showFavoritesOnly ? '显示全部' : '仅看收藏' }}
+          <Star :size="14" :fill="showFavoritesOnly ? 'var(--warning)' : 'none'" :color="showFavoritesOnly ? 'var(--warning)' : undefined" />
+          {{ showFavoritesOnly ? '显示全部' : '仅看收藏' }}
         </button>
       </div>
     </div>
@@ -90,7 +71,7 @@
 
       <!-- Empty -->
       <div v-if="filteredVoices.length === 0" class="empty-state">
-        <div class="icon">🔍</div>
+        <Search :size="56" class="empty-icon" />
         <h3>暂无匹配的音色</h3>
         <p>试试调整筛选条件</p>
       </div>
@@ -112,6 +93,7 @@ import { useRouter } from "vue-router";
 import { useAppStore } from "../stores/app.js";
 import VoiceCard from "../components/VoiceCard.vue";
 import VoicePreview from "../components/VoicePreview.vue";
+import { Drama, User, Baby, Star, Search } from 'lucide-vue-next'
 
 const router = useRouter();
 const store = useAppStore();
@@ -155,6 +137,17 @@ function goToWorkspace(voice) {
 </script>
 
 <style scoped>
+.title-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.empty-icon {
+  color: var(--text-muted);
+  opacity: 0.4;
+  margin-bottom: 16px;
+}
+
 .filter-bar {
   display: flex;
   flex-wrap: wrap;
@@ -184,6 +177,9 @@ function goToWorkspace(voice) {
 }
 
 .filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 6px 14px;
   border-radius: 20px;
   background: var(--bg);

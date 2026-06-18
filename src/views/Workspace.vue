@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <div class="workspace-page">
     <div class="page-header">
-      <h1 class="page-title">✨ 创作工作台</h1>
+      <h1 class="page-title"><Pen :size="28" class="title-icon" /> 创作工作台</h1>
       <p class="page-subtitle">选择场景 → 输入文本 → 调整参数 → 一键生成专业配音</p>
     </div>
 
@@ -11,7 +11,7 @@
         <!-- Scene Selection -->
         <div class="section">
           <div class="section-title">
-            <span class="icon">🎬</span> 选择场景模板
+            <Clapperboard :size="22" class="section-icon" /> 选择场景模板
           </div>
           <div class="grid grid-4">
             <SceneCard
@@ -26,7 +26,7 @@
         <!-- Text Input -->
         <div class="section">
           <div class="section-title">
-            <span class="icon">📝</span> 文本内容
+            <FileText :size="22" class="section-icon" /> 文本内容
           </div>
           <TextEditor
             v-model="textContent"
@@ -37,7 +37,7 @@
         <!-- Voice Selection -->
         <div class="section">
           <div class="section-title">
-            <span class="icon">🎙️</span> 选择音色
+            <Drama :size="22" class="section-icon" /> 选择音色
           </div>
           <div class="voice-selector grid grid-2">
             <div
@@ -49,7 +49,9 @@
             >
               <div class="voice-option-top">
                 <span class="voice-option-icon">
-                  {{ voice.gender === 'male' ? '👨' : voice.gender === 'female' ? '👩' : '👶' }}
+                  <User v-if="voice.gender === 'male'" :size="28" />
+                  <User v-else-if="voice.gender === 'female'" :size="28" />
+                  <Baby v-else :size="28" />
                 </span>
                 <div>
                   <strong>{{ voice.name }}</strong>
@@ -58,7 +60,9 @@
                     <span class="tag tag-success">{{ voice.category }}</span>
                   </div>
                 </div>
-                <button class="btn btn-secondary btn-sm" @click.stop="previewVoice = voice">▶</button>
+                <button class="btn btn-secondary btn-sm" @click.stop="previewVoice = voice">
+                  <Play :size="14" />
+                </button>
               </div>
             </div>
           </div>
@@ -70,7 +74,7 @@
         <!-- Parameter Settings -->
         <div class="section">
           <div class="section-title">
-            <span class="icon">🎛️</span> 参数设置
+            <Settings :size="22" class="section-icon" /> 参数设置
           </div>
           <div class="card settings-card">
             <div class="form-group">
@@ -102,7 +106,7 @@
                   :class="{ active: settings.emotion === em.value }"
                   @click="settings.emotion = em.value"
                 >
-                  <span>{{ em.icon }}</span>
+                  <component :is="em.lucideIcon" :size="22" />
                   <span>{{ em.label }}</span>
                 </button>
               </div>
@@ -114,7 +118,7 @@
                 <option value="none">无背景音乐</option>
                 <option value="relax">轻松舒缓</option>
                 <option value="warm">温暖治愈</option>
-                <option value="tense">紧张悬疑</option>
+                <option value="tense">紧张悬念</option>
                 <option value="formal">正式大气</option>
               </select>
             </div>
@@ -122,7 +126,7 @@
             <div class="form-group" v-if="settings.bgmType !== 'none'">
               <label class="form-label">BGM音量</label>
               <div class="slider-container">
-                <input type="range" class="slider" min="0" max="100" step="5" v-model.number="settings.bgmVolume" />
+                <input type="range" class="slider" min="0" max="100" v-model.number="settings.bgmVolume" />
                 <span class="slider-value">{{ settings.bgmVolume }}%</span>
               </div>
             </div>
@@ -135,27 +139,24 @@
           :disabled="!canGenerate"
           @click="generateAudio"
         >
-          <template v-if="isGenerating">
-            ⏳ 正在生成中...
-          </template>
-          <template v-else>
-            🎧 一键生成配音
-          </template>
+          <Rocket v-if="!isGenerating" :size="20" />
+          <Loader v-else :size="20" class="spin" />
+          {{ isGenerating ? '正在生成...' : '一键生成配音' }}
         </button>
 
-        <!-- Preview Area -->
+        <!-- Generated Result -->
         <div v-if="generatedWork" class="section preview-section">
           <div class="section-title">
-            <span class="icon">🎧</span> 生成结果
+            <CheckCircle :size="22" class="section-icon" /> 配音预览
           </div>
           <div class="card success-card">
             <div class="success-header">
-              <span class="success-icon">✅</span>
+              <CheckCircle :size="28" style="color: #10b981;" />
               <div>
-                <strong>配音生成完成！</strong>
-                <p style="font-size:13px;color:var(--text-secondary);">
-                  时长约 {{ generatedWork.duration }} 秒 · {{ generatedWork.sceneName }}
-                </p>
+                <strong style="font-size:16px;">配音生成成功!</strong>
+                <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;">
+                  {{ generatedWork.sceneName }} · {{ generatedWork.voiceName }} · 时长约{{ generatedWork.duration }}秒
+                </div>
               </div>
             </div>
             <AudioPlayer
@@ -167,21 +168,20 @@
               @toggle-play="isPlaying = !isPlaying"
             />
             <div class="preview-actions">
-              <button class="btn btn-secondary" @click="regenerate">🔄 重新生成</button>
-              <button class="btn btn-success" @click="saveWork">💾 保存作品</button>
-              <router-link to="/my-works" class="btn btn-primary">📂 查看作品</router-link>
+              <button class="btn btn-secondary" @click="regenerate">重新生成</button>
+              <button class="btn btn-primary" @click="saveWork">保存作品</button>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Voice Preview Modal -->
+    <!-- Preview Modal -->
     <VoicePreview
       v-if="previewVoice"
       :voice="previewVoice"
       @close="previewVoice = null"
-      @select="selectedVoice = previewVoice; previewVoice = null"
+      @select="selectVoiceFromPreview"
     />
   </div>
 </template>
@@ -193,42 +193,18 @@ import SceneCard from "../components/SceneCard.vue";
 import TextEditor from "../components/TextEditor.vue";
 import AudioPlayer from "../components/AudioPlayer.vue";
 import VoicePreview from "../components/VoicePreview.vue";
+import {
+  Pen, Clapperboard, FileText, Drama, Settings, Rocket, Loader, CheckCircle,
+  Play, User, Baby, Smile, Laugh, Frown, Zap, Mic, BookOpen, Library, Heart
+} from 'lucide-vue-next'
 
 const store = useAppStore();
 
 const scenes = [
-  {
-    id: "podcast",
-    name: "播客模式",
-    icon: "🎙️",
-    description: "轻松口语化风格，适合播客节目",
-    defaultSpeed: 1.1,
-    color: "#6366f1",
-  },
-  {
-    id: "knowledge",
-    name: "知识讲解",
-    icon: "📚",
-    description: "正式专业风格，适合课程讲授",
-    defaultSpeed: 0.95,
-    color: "#10b981",
-  },
-  {
-    id: "story",
-    name: "故事叙述",
-    icon: "📖",
-    description: "富有表现力，适合故事朗读",
-    defaultSpeed: 1.0,
-    color: "#f59e0b",
-  },
-  {
-    id: "emotion",
-    name: "情感朗读",
-    icon: "💝",
-    description: "温婉细腻，适合散文朗读",
-    defaultSpeed: 0.9,
-    color: "#ec4899",
-  },
+  { id: "podcast", name: "播客模式", iconComponent: Mic, description: "适合播客节目、脱口秀", color: "#6366f1", defaultSpeed: 1.0 },
+  { id: "lecture", name: "知识讲解", iconComponent: BookOpen, description: "适合课程录制、知识分享", color: "#10b981", defaultSpeed: 0.9 },
+  { id: "storytelling", name: "故事叙述", iconComponent: Library, description: "适合有声小说、儿童故事", color: "#f59e0b", defaultSpeed: 0.85 },
+  { id: "emotional", name: "情感朗读", iconComponent: Heart, description: "适合散文诗歌、情感表达", color: "#ef4444", defaultSpeed: 0.8 },
 ];
 
 const availableVoices = [
@@ -243,10 +219,10 @@ const availableVoices = [
 ];
 
 const emotions = [
-  { value: "calm", icon: "😊", label: "平静" },
-  { value: "happy", icon: "😄", label: "开心" },
-  { value: "sad", icon: "😢", label: "悲伤" },
-  { value: "excited", icon: "🤩", label: "激动" },
+  { value: "calm", lucideIcon: Smile, label: "平静" },
+  { value: "happy", lucideIcon: Laugh, label: "开心" },
+  { value: "sad", lucideIcon: Frown, label: "悲伤" },
+  { value: "excited", lucideIcon: Zap, label: "激动" },
 ];
 
 const selectedScene = ref(null);
@@ -273,11 +249,17 @@ function selectScene(scene) {
   settings.value.speed = scene.defaultSpeed;
 }
 
+function selectVoiceFromPreview() {
+  if (previewVoice.value) {
+    selectedVoice.value = previewVoice.value;
+    previewVoice.value = null;
+  }
+}
+
 async function generateAudio() {
   if (!canGenerate.value) return;
   isGenerating.value = true;
 
-  // Simulate generation delay
   await new Promise((r) => setTimeout(r, 1500));
 
   generatedWork.value = {
@@ -317,6 +299,16 @@ function saveWork() {
   padding-bottom: 40px;
 }
 
+.section-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.title-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
 .voice-option {
   cursor: pointer;
   padding: 14px 16px;
@@ -335,7 +327,6 @@ function saveWork() {
 }
 
 .voice-option-icon {
-  font-size: 28px;
   width: 40px;
   height: 40px;
   display: flex;
@@ -344,6 +335,7 @@ function saveWork() {
   background: var(--bg);
   border-radius: 10px;
   flex-shrink: 0;
+  color: var(--primary);
 }
 
 .voice-option-top > div {
@@ -362,7 +354,6 @@ function saveWork() {
   gap: 4px;
 }
 
-/* Settings */
 .settings-card {
   padding: 20px;
 }
@@ -387,10 +378,6 @@ function saveWork() {
   transition: all var(--transition);
 }
 
-.emotion-btn span:first-child {
-  font-size: 22px;
-}
-
 .emotion-btn:hover {
   border-color: var(--primary);
 }
@@ -402,15 +389,26 @@ function saveWork() {
   font-weight: 600;
 }
 
-/* Generate */
 .generate-btn {
   margin-bottom: 24px;
   font-size: 18px;
   padding: 16px;
   border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-/* Preview */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .preview-section {
   margin-top: 0;
 }
@@ -427,10 +425,6 @@ function saveWork() {
   margin-bottom: 16px;
 }
 
-.success-icon {
-  font-size: 28px;
-}
-
 .preview-actions {
   display: flex;
   gap: 10px;
@@ -438,3 +432,4 @@ function saveWork() {
   flex-wrap: wrap;
 }
 </style>
+
