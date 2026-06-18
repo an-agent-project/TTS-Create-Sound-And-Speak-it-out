@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <div class="card scene-card" :style="{ borderColor: scene.color + '40' }" @click="$emit('select')">
     <div class="scene-icon" :style="{ background: scene.color + '15', color: scene.color }">
-      {{ scene.icon }}
+      <component :is="scene.iconComponent" :size="28" />
     </div>
     <h3 class="scene-name">{{ scene.name }}</h3>
     <p class="scene-desc">{{ scene.description }}</p>
@@ -37,7 +37,6 @@ defineEmits(["select"]);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
   margin: 0 auto 14px;
 }
 

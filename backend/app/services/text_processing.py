@@ -1,6 +1,6 @@
 import re
 
-from app.models import PreprocessResponse, SensitiveHit, TextSegment
+from app.work_schemas import PreprocessResponse, SensitiveHit, TextSegment
 
 SENSITIVE_WORDS = ["暴力", "色情", "赌博", "毒品", "诈骗", "恐怖"]
 

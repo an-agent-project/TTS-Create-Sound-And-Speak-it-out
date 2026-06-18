@@ -6,42 +6,45 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.data import SCENE_BY_ID, SCENES, VOICE_BY_ID, VOICES
-from app.models import GenerateRequest, PreprocessRequest, Work
+from app.api.tts import router as tts_router
+from app.api.voices import router as voices_router
+from app.data import SCENE_BY_ID, SCENES, VOICE_BY_ID
 from app.services.text_processing import preprocess_text
 from app.services.tts import synthesize_to_file
 from app.storage import MEDIA_DIR, delete_work, ensure_storage, get_work, list_works, save_work
+from app.work_schemas import GenerateRequest, PreprocessRequest, Work
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+STATIC_DIR = BASE_DIR / "static"
+PREVIEW_DIR = STATIC_DIR / "previews"
+PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+ensure_storage()
 
 app = FastAPI(title="有声读物智能生成系统 API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-ensure_storage()
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
+app.include_router(tts_router)
+app.include_router(voices_router)
 
 
+@app.get("/health")
 @app.get("/api/health")
-def health() -> dict[str, str]:
+async def health() -> dict[str, str]:
     return {"status": "ok", "service": "audiobook-generator-backend"}
 
 
 @app.get("/api/scenes")
 def get_scenes() -> list[dict]:
     return SCENES
-
-
-@app.get("/api/voices")
-def get_voices() -> list[dict]:
-    return VOICES
 
 
 @app.post("/api/text/preprocess")
@@ -65,7 +68,6 @@ async def generate_tts(payload: GenerateRequest, request: Request) -> Work:
 
     work_id = uuid4().hex
     output_path = MEDIA_DIR / f"{work_id}.mp3"
-
     try:
         await synthesize_to_file(
             text=processed.cleanedText,
@@ -80,14 +82,13 @@ async def generate_tts(payload: GenerateRequest, request: Request) -> Work:
             output_path.unlink()
         raise HTTPException(status_code=502, detail=f"TTS 合成失败：{exc}") from exc
 
-    title = payload.title or _build_title(scene["name"] if scene else "通用", processed.cleanedText)
-    audio_url = _public_media_url(request, output_path)
+    scene_name = scene["name"] if scene else "通用"
     work = Work(
         id=work_id,
-        title=title,
+        title=payload.title or _build_title(scene_name, processed.cleanedText),
         content=processed.cleanedText,
-        sceneId=scene["id"] if scene else "",
-        sceneName=scene["name"] if scene else "通用",
+        sceneId=payload.sceneId or "",
+        sceneName=scene_name,
         voiceId=payload.voiceId,
         voiceName=voice["name"],
         speed=payload.speed,
@@ -96,7 +97,7 @@ async def generate_tts(payload: GenerateRequest, request: Request) -> Work:
         bgmType=payload.bgmType,
         bgmVolume=payload.bgmVolume,
         duration=max(1, round(len(processed.cleanedText) / 4)),
-        audioUrl=audio_url,
+        audioUrl=f"{str(request.base_url).rstrip('/')}/media/{output_path.name}",
         createdAt=datetime.now(timezone.utc).isoformat(),
         segmentCount=len(processed.segments),
     )
@@ -127,8 +128,3 @@ def _build_title(scene_name: str, text: str) -> str:
     excerpt = text[:20].strip()
     suffix = "..." if len(text) > 20 else ""
     return f"【{scene_name}】{excerpt}{suffix}"
-
-
-def _public_media_url(request: Request, path: Path) -> str:
-    base = str(request.base_url).rstrip("/")
-    return f"{base}/media/{path.name}"

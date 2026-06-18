@@ -30,8 +30,13 @@ export function fetchScenes() {
   return request("/scenes");
 }
 
-export function fetchVoices() {
-  return request("/voices");
+export async function fetchVoices() {
+  const voices = await request("/voices");
+  return voices.map((voice) => ({
+    ...voice,
+    id: voice.voiceKey || voice.id,
+    name: voice.displayName || voice.name,
+  }));
 }
 
 export function preprocessText(content) {

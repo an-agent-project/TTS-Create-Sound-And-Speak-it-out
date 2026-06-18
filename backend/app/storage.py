@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from app.models import Work
+from app.work_schemas import Work
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"

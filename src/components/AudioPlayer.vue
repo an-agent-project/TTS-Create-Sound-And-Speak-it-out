@@ -1,14 +1,15 @@
-<template>
+﻿<template>
   <div class="audio-player">
     <div class="player-controls">
       <button class="player-btn" @click="$emit('prev')" title="上一个">
-        ⏮
+        <SkipBack :size="20" />
       </button>
       <button class="player-btn play-btn" @click="togglePlay" title="播放/暂停">
-        {{ playing ? '⏸' : '▶️' }}
+        <Pause v-if="playing" :size="24" />
+        <Play v-else :size="24" />
       </button>
       <button class="player-btn" @click="$emit('next')" title="下一个">
-        ⏭
+        <SkipForward :size="20" />
       </button>
     </div>
     <div class="player-progress">
@@ -20,7 +21,7 @@
     </div>
     <div class="player-extra">
       <div class="volume-control">
-        <span>🔊</span>
+        <Volume2 :size="18" />
         <input
           type="range"
           class="slider"
@@ -31,7 +32,7 @@
         />
       </div>
       <a v-if="audioUrl" :href="audioUrl" download class="btn btn-secondary btn-sm">
-        ⬇ 下载
+        <Download :size="14" /> 下载
       </a>
     </div>
   </div>
@@ -39,6 +40,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { SkipBack, SkipForward, Play, Pause, Volume2, Download } from 'lucide-vue-next'
 
 const props = defineProps({
   isPlaying: { type: Boolean, default: false },
@@ -46,6 +48,7 @@ const props = defineProps({
   duration: { type: Number, default: 0 },
   volume: { type: Number, default: 80 },
   audioUrl: { type: String, default: "" },
+  managedExternally: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([
@@ -53,7 +56,7 @@ const emit = defineEmits([
   "prev",
   "next",
   "seek",
-  "volume-change",
+  "volumeChange",
 ]);
 
 const audio = ref(null);
@@ -68,7 +71,7 @@ watch(
     cleanupAudio();
     internalCurrentTime.value = 0;
     internalDuration.value = props.duration || 0;
-    if (!url || url === "#") return;
+    if (props.managedExternally || !url || url === "#") return;
 
     audio.value = new Audio(url);
     audio.value.volume = currentVolume.value / 100;
@@ -79,69 +82,52 @@ watch(
   { immediate: true },
 );
 
-watch(
-  () => props.volume,
-  (volume) => {
-    currentVolume.value = volume;
-    if (audio.value) {
-      audio.value.volume = volume / 100;
-    }
-  },
-);
-
-function formatTime(s) {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
+function formatTime(seconds) {
+  if (!seconds || isNaN(seconds) || seconds < 0) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-const displayCurrentTime = computed(() => {
-  return audio.value ? internalCurrentTime.value : props.currentTime;
-});
-
-const displayDuration = computed(() => {
-  return audio.value ? internalDuration.value : props.duration;
-});
-
 const progressPercent = computed(() => {
-  return displayDuration.value > 0
-    ? (displayCurrentTime.value / displayDuration.value) * 100
-    : 0;
+  if (!displayDuration.value) return 0;
+  return Math.min((displayCurrentTime.value / displayDuration.value) * 100, 100);
 });
+
+const displayCurrentTime = computed(() =>
+  audio.value && !props.managedExternally ? internalCurrentTime.value : props.currentTime,
+);
+
+const displayDuration = computed(() =>
+  audio.value && !props.managedExternally ? internalDuration.value : props.duration,
+);
 
 async function togglePlay() {
   emit("toggle-play");
-  if (!audio.value) {
-    playing.value = !playing.value;
-    return;
-  }
-
+  if (props.managedExternally) return;
+  if (!audio.value) return;
   if (playing.value) {
     audio.value.pause();
     playing.value = false;
     return;
   }
-
   await audio.value.play();
   playing.value = true;
 }
 
 function onSeek(event) {
   const rect = event.currentTarget.getBoundingClientRect();
-  const ratio = (event.clientX - rect.left) / rect.width;
-  if (audio.value && displayDuration.value > 0) {
-    audio.value.currentTime = ratio * displayDuration.value;
-  }
-  emit("seek", ratio);
+  const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+  const targetTime = ratio * displayDuration.value;
+  if (audio.value && !props.managedExternally) audio.value.currentTime = targetTime;
+  emit("seek", targetTime);
 }
 
 function onVolumeChange(event) {
   const volume = Number(event.target.value);
   currentVolume.value = volume;
-  if (audio.value) {
-    audio.value.volume = volume / 100;
-  }
-  emit("volume-change", volume);
+  if (audio.value && !props.managedExternally) audio.value.volume = volume / 100;
+  emit("volumeChange", volume);
 }
 
 function updateProgress() {
@@ -172,14 +158,12 @@ onBeforeUnmount(cleanupAudio);
 
 <style scoped>
 .audio-player {
-  background: var(--bg);
-  border-radius: var(--radius);
-  padding: 16px 20px;
-  border: 1px solid var(--border);
+  padding: 8px 0;
 }
 
 .player-controls {
   display: flex;
+  align-items: center;
   justify-content: center;
   gap: 16px;
   margin-bottom: 12px;
@@ -187,18 +171,32 @@ onBeforeUnmount(cleanupAudio);
 
 .player-btn {
   background: none;
-  font-size: 22px;
-  padding: 4px;
+  border: none;
+  color: var(--text-secondary);
+  padding: 6px;
   border-radius: 50%;
-  transition: transform var(--transition);
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .player-btn:hover {
-  transform: scale(1.15);
+  color: var(--primary);
+  background: var(--primary-light);
 }
 
 .play-btn {
-  font-size: 36px;
+  width: 48px;
+  height: 48px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 50%;
+}
+
+.play-btn:hover {
+  background: var(--primary-hover);
+  color: #fff;
 }
 
 .player-progress {
@@ -211,9 +209,8 @@ onBeforeUnmount(cleanupAudio);
 .player-time {
   font-size: 12px;
   color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
   min-width: 36px;
-  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-bar {
@@ -236,7 +233,6 @@ onBeforeUnmount(cleanupAudio);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
 }
 
 .volume-control {
@@ -244,13 +240,24 @@ onBeforeUnmount(cleanupAudio);
   align-items: center;
   gap: 8px;
   flex: 1;
-}
-
-.volume-control span {
-  font-size: 16px;
+  color: var(--text-muted);
 }
 
 .volume-control .slider {
-  max-width: 100px;
+  flex: 1;
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+}
+
+.volume-control .slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
 }
 </style>

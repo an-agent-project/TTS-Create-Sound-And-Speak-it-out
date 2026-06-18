@@ -1,12 +1,21 @@
-<template>
+﻿<template>
   <div class="text-editor">
     <div class="editor-toolbar">
       <span class="toolbar-info">
         字数：<strong>{{ charCount }}</strong>
-        {{ charCount > 500 ? '| 预估时长：~' + estimatedDuration + ' 分钟' : '' }}
+        {{ charCount > 500 ? '| 预计时长：约' + estimatedDuration + ' 分钟' : '' }}
       </span>
       <div class="toolbar-actions">
-        <button class="btn btn-secondary btn-sm" @click="$emit('upload')">📁 上传文件</button>
+        <button class="btn btn-secondary btn-sm" @click="triggerFileInput">
+          <FileUp :size="14" /> 本地文件
+        </button>
+        <input
+          ref="fileInput"
+          type="file"
+          accept=".txt,.md,.html,.json,.csv"
+          style="display:none"
+          @change="handleFileUpload"
+        />
         <button class="btn btn-secondary btn-sm" @click="$emit('clear')" :disabled="!modelValue">清空</button>
       </div>
     </div>
@@ -18,13 +27,14 @@
       rows="14"
     ></textarea>
     <div class="editor-hint" v-if="showHint && charCount > 0">
-      💡 提示：系统将自动为您的文本进行智能分段，生成自然流畅的语音
+      <Lightbulb :size="14" /> 提示：系统将自动为您的文本进行智能分段，生成自然流畅的语音
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed } from "vue";
+import { FileUp, Lightbulb } from 'lucide-vue-next'
 
 const props = defineProps({
   modelValue: { type: String, default: "" },
@@ -32,10 +42,30 @@ const props = defineProps({
   showHint: { type: Boolean, default: true },
 });
 
-defineEmits(["update:modelValue", "upload", "clear"]);
+const emit = defineEmits(["update:modelValue", "upload", "clear"]);
+
+const fileInput = ref(null);
 
 const charCount = computed(() => props.modelValue.length);
 const estimatedDuration = computed(() => Math.ceil(props.modelValue.length / 300));
+
+function triggerFileInput() {
+  fileInput.value?.click();
+}
+
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    emit("update:modelValue", ev.target.result);
+  };
+  reader.onerror = () => {
+    alert("文件读取失败，请重试。");
+  };
+  reader.readAsText(file, "UTF-8");
+  e.target.value = "";
+}
 </script>
 
 <style scoped>
@@ -87,6 +117,9 @@ const estimatedDuration = computed(() => Math.ceil(props.modelValue.length / 300
 }
 
 .editor-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 10px 16px;
   font-size: 13px;
   color: var(--text-muted);

@@ -122,3 +122,10 @@ VOICES = [
 
 VOICE_BY_ID = {voice["id"]: voice for voice in VOICES}
 SCENE_BY_ID = {scene["id"]: scene for scene in SCENES}
+SCENE_BY_ID.update(
+    {
+        "lecture": SCENE_BY_ID["knowledge"],
+        "storytelling": SCENE_BY_ID["story"],
+        "emotional": SCENE_BY_ID["emotion"],
+    }
+)
