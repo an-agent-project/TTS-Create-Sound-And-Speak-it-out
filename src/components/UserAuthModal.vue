@@ -13,19 +13,19 @@
 
       <!-- Login form -->
       <div v-if="!isRegister" class="container">
-        <label><b>??</b></label>
+        <label><b>邮箱</b></label>
         <input
           type="email"
           v-model="loginForm.email"
-          placeholder="???????"
+          placeholder="请输入邮箱地址"
           required
         />
 
-        <label><b>??</b></label>
+        <label><b>密码</b></label>
         <input
           type="password"
           v-model="loginForm.password"
-          placeholder="?????"
+          placeholder="请确认密码"
           required
         />
 
@@ -49,7 +49,7 @@
           required
         />
 
-        <label><b>???</b></label>
+        <label><b>验证码</b></label>
         <div class="code-row">
           <input
             type="text"
@@ -73,11 +73,11 @@
         <input
           type="text"
           v-model="regForm.username"
-          placeholder="???????"
+          placeholder="请设置密码"
           required
         />
 
-        <label><b>??</b></label>
+        <label><b>确认密码</b></label>
         <input
           type="password"
           v-model="regForm.password"
