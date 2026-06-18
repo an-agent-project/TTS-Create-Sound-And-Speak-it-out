@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -16,6 +18,51 @@ class TtsPreviewRequest(BaseModel):
 class TtsPreviewResponse(BaseModel):
     audio_url: str = Field(..., alias="audioUrl")
     duration: int
+
+
+# ── Auth schemas ──────────────────────────────────────────────
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(..., min_length=1, max_length=50)
+    password: str = Field(..., min_length=1)
+
+
+class RegisterRequest(BaseModel):
+    username: str = Field(..., min_length=1, max_length=50)
+    password: str = Field(..., min_length=4)
+    email: str | None = Field(default=None, max_length=120)
+
+
+class UserRead(BaseModel):
+    id: int
+    username: str
+    email: str | None = None
+    phone: str | None = None
+    avatar: str | None = None
+    created_at: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserUpdate(BaseModel):
+    email: str | None = Field(default=None, max_length=120)
+    phone: str | None = Field(default=None, max_length=20)
+    avatar: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=4)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserRead
+
+
+# ── Voice schemas ──────────────────────────────────────────────
 
 
 class CamelModel(BaseModel):
@@ -61,9 +108,12 @@ class VoiceUpdate(CamelModel):
     category: str | None = Field(default=None, max_length=50)
     description: str | None = Field(default=None, max_length=255)
     is_recommended: bool | None = Field(default=None, alias="isRecommended")
+    voice_key: str | None = Field(default=None, alias="voiceKey", min_length=1, max_length=100)
+    providers: list[VoiceProviderProfileCreate] | None = None
 
 
 class VoiceRead(VoiceBase):
     id: int
     is_active: bool = Field(alias="isActive")
+    owner_id: int | None = Field(default=None, alias="ownerId")
     providers: list[VoiceProviderProfileRead] = Field(default_factory=list)

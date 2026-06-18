@@ -22,12 +22,18 @@
         />
 
         <label><b>密码</b></label>
-        <input
-          type="password"
-          v-model="loginForm.password"
-          placeholder="请输入密码"
-          required
-        />
+        <div class="pwd-wrap">
+          <input
+            :type="showPwd ? 'text' : 'password'"
+            v-model="loginForm.password"
+            placeholder="请输入密码"
+            required
+          />
+          <span class="toggle-pwd" @click="showPwd = !showPwd">
+            <EyeOff v-if="showPwd" :size="18" />
+            <Eye v-else :size="18" />
+          </span>
+        </div>
 
         <div v-if="errorMsg" class="err-msg">{{ errorMsg }}</div>
 
@@ -50,19 +56,34 @@
         />
 
         <label><b>密码</b></label>
-        <input
-          type="password"
-          v-model="regForm.password"
-          placeholder="请设置密码"
-          required
-        />
+        <div class="pwd-wrap">
+          <input
+            :type="showPwd ? 'text' : 'password'"
+            v-model="regForm.password"
+            placeholder="请设置密码"
+            required
+          />
+          <span class="toggle-pwd" @click="showPwd = !showPwd">
+            <EyeOff v-if="showPwd" :size="18" />
+            <Eye v-else :size="18" />
+          </span>
+        </div>
 
         <label><b>确认密码</b></label>
+        <div class="pwd-wrap">
+          <input
+            :type="showPwd ? 'text' : 'password'"
+            v-model="regForm.confirmPassword"
+            placeholder="请确认密码"
+            required
+          />
+        </div>
+
+        <label><b>邮箱（选填）</b></label>
         <input
-          type="password"
-          v-model="regForm.confirmPassword"
-          placeholder="请确认密码"
-          required
+          type="email"
+          v-model="regForm.email"
+          placeholder="请输入邮箱地址（选填）"
         />
 
         <div v-if="errorMsg" class="err-msg">{{ errorMsg }}</div>
@@ -90,6 +111,7 @@
 
 <script setup>
 import { ref, reactive, watch } from 'vue'
+import { Eye, EyeOff } from 'lucide-vue-next'
 import { useAppStore } from '../stores/app'
 
 const emit = defineEmits(['close'])
@@ -98,6 +120,7 @@ const store = useAppStore()
 const isRegister = ref(false)
 const errorMsg = ref('')
 const rememberMe = ref(false)
+const showPwd = ref(false)
 
 const loginForm = reactive({
   username: '',
@@ -107,7 +130,8 @@ const loginForm = reactive({
 const regForm = reactive({
   username: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  email: ''
 })
 
 // 切换表单时清除数据
@@ -117,6 +141,8 @@ watch(isRegister, () => {
   regForm.username = ''
   regForm.password = ''
   regForm.confirmPassword = ''
+  regForm.email = ''
+  showPwd.value = false
   errorMsg.value = ''
 })
 
@@ -132,13 +158,13 @@ function forgotPassword() {
   alert('请联系管理员重置密码')
 }
 
-function handleLogin() {
+async function handleLogin() {
   errorMsg.value = ''
   if (!loginForm.username.trim() || !loginForm.password.trim()) {
     errorMsg.value = '请输入账户名称和密码'
     return
   }
-  const result = store.login(loginForm.username.trim(), loginForm.password.trim())
+  const result = await store.login(loginForm.username.trim(), loginForm.password.trim())
   if (!result.success) {
     errorMsg.value = result.message
     return
@@ -151,7 +177,7 @@ function handleLogin() {
   emit('close')
 }
 
-function handleRegister() {
+async function handleRegister() {
   errorMsg.value = ''
   if (!regForm.username.trim() || !regForm.password.trim()) {
     errorMsg.value = '请填写完整的注册信息'
@@ -165,7 +191,7 @@ function handleRegister() {
     errorMsg.value = '密码长度不能少于4位'
     return
   }
-  const result = store.register(regForm.username.trim(), regForm.password.trim())
+  const result = await store.register(regForm.username.trim(), regForm.password.trim(), regForm.email.trim())
   if (!result.success) {
     errorMsg.value = result.message
     return
@@ -253,7 +279,8 @@ if (remembered) {
 }
 
 .container input[type="text"],
-.container input[type="password"] {
+.container input[type="password"],
+.container input[type="email"] {
   width: 100%;
   padding: 12px 16px;
   margin: 8px 0;
@@ -270,6 +297,46 @@ if (remembered) {
 .container input:focus {
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+/* Password wrapper */
+.pwd-wrap {
+  position: relative;
+}
+
+.pwd-wrap input {
+  width: 100%;
+  padding: 12px 40px 12px 16px;
+  margin: 8px 0;
+  display: inline-block;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #333;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.pwd-wrap input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.pwd-wrap .toggle-pwd {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+
+.pwd-wrap .toggle-pwd:hover {
+  color: #6366f1;
 }
 
 .container input::placeholder {

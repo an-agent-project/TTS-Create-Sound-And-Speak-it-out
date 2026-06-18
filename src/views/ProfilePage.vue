@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="profile-page">
     <div class="page-header">
       <h1 class="page-title"><User :size="28" class="title-icon" /> 个人中心</h1>
@@ -28,9 +28,44 @@
         <div class="account-info">
           <h2 class="account-name">{{ store.user.username || '用户' }}</h2>
           <div class="account-meta">
-            <div class="meta-item">
+            <!-- Email — inline editable -->
+            <div class="meta-item editable" @click="startEdit('email')">
               <Mail :size="18" class="meta-icon" />
-              <span>{{ store.user.email || '未设置邮箱' }}</span>
+              <template v-if="editingField === 'email'">
+                <input
+                  ref="editInput"
+                  v-model="editValue"
+                  type="email"
+                  class="inline-input"
+                  placeholder="请输入邮箱"
+                  @keydown.enter="saveEdit"
+                  @keydown.escape="cancelEdit"
+                  @click.stop
+                />
+                <button class="icon-btn save" @click.stop="saveEdit" title="保存"><Check :size="16" /></button>
+                <button class="icon-btn cancel" @click.stop="cancelEdit" title="取消"><X :size="16" /></button>
+              </template>
+              <span v-else class="meta-value">{{ store.user.email || '未设置邮箱' }} <Pencil :size="12" class="edit-hint" /></span>
+            </div>
+            <!-- Phone — inline editable -->
+            <div class="meta-item editable" @click="startEdit('phone')">
+              <Smartphone :size="18" class="meta-icon" />
+              <template v-if="editingField === 'phone'">
+                <input
+                  ref="editInput"
+                  v-model="editValue"
+                  type="tel"
+                  class="inline-input"
+                  placeholder="请输入手机号"
+                  maxlength="11"
+                  @keydown.enter="saveEdit"
+                  @keydown.escape="cancelEdit"
+                  @click.stop
+                />
+                <button class="icon-btn save" @click.stop="saveEdit" title="保存"><Check :size="16" /></button>
+                <button class="icon-btn cancel" @click.stop="cancelEdit" title="取消"><X :size="16" /></button>
+              </template>
+              <span v-else class="meta-value">{{ store.user.phone || '未设置手机号' }} <Pencil :size="12" class="edit-hint" /></span>
             </div>
             <div class="meta-item">
               <Calendar :size="18" class="meta-icon" />
@@ -41,9 +76,14 @@
               <span>作品数量：{{ store.works.length }}</span>
             </div>
           </div>
-          <button class="btn btn-danger btn-sm" @click="handleLogout" style="margin-top:12px;">
-            退出登录
-          </button>
+          <div class="account-actions">
+            <button class="btn btn-secondary btn-sm" @click="openPasswordModal">
+              <Lock :size="14" /> 修改密码
+            </button>
+            <button class="btn btn-danger btn-sm" @click="handleLogout">
+              退出登录
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -131,29 +171,104 @@
         </div>
       </div>
     </div>
+
+    <!-- Change Password Modal -->
+    <div v-if="showPasswordModal" class="confirm-overlay" @click.self="showPasswordModal = false">
+      <div class="confirm-modal">
+        <h3>修改密码</h3>
+        <div class="form-group">
+          <label class="form-label">当前密码</label>
+          <div class="pwd-wrap">
+            <input
+              :type="showPwdInModal ? 'text' : 'password'"
+              v-model="passwordForm.oldPassword"
+              class="form-input"
+              placeholder="请输入当前密码"
+            />
+            <span class="toggle-pwd" @click="showPwdInModal = !showPwdInModal">
+              <EyeOff v-if="showPwdInModal" :size="18" />
+              <Eye v-else :size="18" />
+            </span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">新密码</label>
+          <div class="pwd-wrap">
+            <input
+              :type="showPwdInModal ? 'text' : 'password'"
+              v-model="passwordForm.newPassword"
+              class="form-input"
+              placeholder="请设置新密码（至少4位）"
+            />
+            <span class="toggle-pwd" @click="showPwdInModal = !showPwdInModal">
+              <EyeOff v-if="showPwdInModal" :size="18" />
+              <Eye v-else :size="18" />
+            </span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">确认新密码</label>
+          <div class="pwd-wrap">
+            <input
+              :type="showPwdInModal ? 'text' : 'password'"
+              v-model="passwordForm.confirmPassword"
+              class="form-input"
+              placeholder="请再次输入新密码"
+            />
+            <span class="toggle-pwd" @click="showPwdInModal = !showPwdInModal">
+              <EyeOff v-if="showPwdInModal" :size="18" />
+              <Eye v-else :size="18" />
+            </span>
+          </div>
+        </div>
+        <div v-if="passwordError" class="err-msg">{{ passwordError }}</div>
+        <div v-if="passwordSuccess" class="success-msg">{{ passwordSuccess }}</div>
+        <div class="confirm-actions">
+          <button class="btn btn-secondary" @click="showPasswordModal = false">取消</button>
+          <button class="btn btn-primary" @click="handleChangePassword" :disabled="passwordLoading">
+            {{ passwordLoading ? '修改中...' : '确认修改' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, nextTick, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { useAppStore } from "../stores/app.js";
 import AudioPlayer from "../components/AudioPlayer.vue";
 import {
   User, Camera, Mail, Calendar, Layers, BarChart3, FolderOpen,
-  Rocket, Music, Play, PlayCircle, Trash2, X
+  Rocket, Music, Play, PlayCircle, Trash2, X, Pencil, Check, Smartphone, Lock, Eye, EyeOff
 } from 'lucide-vue-next'
 
 const router = useRouter();
 const store = useAppStore();
 
 const fileInput = ref(null);
+const editInput = ref(null);
 const deleteTarget = ref(null);
 const previewWork = ref(null);
 const isPlaying = ref(false);
 
+const editingField = ref(null);   // null | 'email' | 'phone'
+const editValue = ref("");
+
+const showPasswordModal = ref(false);
+const showPwdInModal = ref(false);
+const passwordLoading = ref(false);
+const passwordError = ref("");
+const passwordSuccess = ref("");
+const passwordForm = reactive({
+  oldPassword: "",
+  newPassword: "",
+  confirmPassword: "",
+});
+
 const formattedDate = computed(() => {
-  const d = store.user.registeredAt;
+  const d = store.user.created_at;
   if (!d) return "";
   const date = new Date(d);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -168,9 +283,67 @@ function handleFileChange(e) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
-    store.updateAvatar(reader.result);
+    store.updateMe({ avatar: reader.result });
   };
   reader.readAsDataURL(file);
+}
+
+async function startEdit(field) {
+  editingField.value = field;
+  editValue.value = store.user[field] || "";
+  await nextTick();
+  editInput.value?.focus();
+}
+
+function cancelEdit() {
+  editingField.value = null;
+  editValue.value = "";
+}
+
+async function saveEdit() {
+  const field = editingField.value;
+  if (!field) return;
+  const value = editValue.value.trim();
+  await store.updateMe({ [field]: value || null });
+  editingField.value = null;
+  editValue.value = "";
+}
+
+function openPasswordModal() {
+  passwordForm.oldPassword = "";
+  passwordForm.newPassword = "";
+  passwordForm.confirmPassword = "";
+  passwordError.value = "";
+  passwordSuccess.value = "";
+  passwordLoading.value = false;
+  showPwdInModal.value = false;
+  showPasswordModal.value = true;
+}
+
+async function handleChangePassword() {
+  passwordError.value = "";
+  passwordSuccess.value = "";
+  if (!passwordForm.oldPassword) {
+    passwordError.value = "请输入当前密码";
+    return;
+  }
+  if (passwordForm.newPassword.length < 4) {
+    passwordError.value = "新密码长度不能少于4位";
+    return;
+  }
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    passwordError.value = "两次新密码输入不一致";
+    return;
+  }
+  passwordLoading.value = true;
+  const result = await store.changePassword(passwordForm.oldPassword, passwordForm.newPassword);
+  passwordLoading.value = false;
+  if (!result.success) {
+    passwordError.value = result.message;
+    return;
+  }
+  passwordSuccess.value = "密码修改成功！";
+  setTimeout(() => { showPasswordModal.value = false; }, 1500);
 }
 
 function handleLogout() {
@@ -312,11 +485,77 @@ function doDelete() {
   color: var(--text-secondary);
 }
 
+.meta-item.editable {
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  padding: 4px 6px;
+  margin: -4px -6px;
+  transition: background 0.15s;
+}
+
+.meta-item.editable:hover {
+  background: var(--primary-light);
+}
+
+.meta-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.edit-hint {
+  opacity: 0;
+  color: var(--text-muted);
+  transition: opacity 0.15s;
+}
+
+.meta-item.editable:hover .edit-hint {
+  opacity: 1;
+}
+
+.inline-input {
+  padding: 4px 8px;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-xs);
+  font-size: 14px;
+  outline: none;
+  width: 180px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.icon-btn.save {
+  background: var(--success);
+  color: #fff;
+}
+
+.icon-btn.cancel {
+  background: var(--border);
+  color: var(--text-secondary);
+}
+
 .meta-icon {
   width: 28px;
   text-align: center;
   color: var(--text-muted);
   flex-shrink: 0;
+}
+
+.account-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
 }
 
 .works-section {
@@ -477,14 +716,65 @@ function doDelete() {
   margin-bottom: 20px;
 }
 
+.err-msg {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.success-msg {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* Password visibility toggle inside modal */
+.pwd-wrap {
+  position: relative;
+}
+
+.pwd-wrap .form-input {
+  padding-right: 40px;
+}
+
+.pwd-wrap .toggle-pwd {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+
+.pwd-wrap .toggle-pwd:hover {
+  color: #6366f1;
+}
+
 @media (max-width: 640px) {
   .account-top {
     flex-direction: column;
     align-items: center;
     text-align: center;
   }
+  .account-actions {
+    justify-content: center;
+  }
   .work-row-actions {
     flex-direction: column;
+  }
+  .inline-input {
+    width: 130px;
   }
 }
 </style>

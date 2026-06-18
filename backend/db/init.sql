@@ -4,6 +4,20 @@ CREATE DATABASE IF NOT EXISTS tts_podcast
 
 USE tts_podcast;
 
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  username VARCHAR(50) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  email VARCHAR(120) NULL,
+  phone VARCHAR(20) NULL,
+  avatar TEXT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_user_username (username)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS voices (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   voice_key VARCHAR(100) NOT NULL,
@@ -14,12 +28,18 @@ CREATE TABLE IF NOT EXISTS voices (
   description VARCHAR(255) NULL,
   is_recommended BOOLEAN NOT NULL DEFAULT FALSE,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  owner_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_voice_key (voice_key),
   KEY idx_voice_category (category),
-  KEY idx_voice_recommended (is_recommended)
+  KEY idx_voice_recommended (is_recommended),
+  KEY idx_voice_owner (owner_id),
+  CONSTRAINT fk_voice_owner
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS voice_provider_profiles (

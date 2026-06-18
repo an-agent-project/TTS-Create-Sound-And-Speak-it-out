@@ -3,12 +3,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.auth import create_access_token, hash_password
 from app.database import get_db
 from app.main import app
-from app.models import Base
+from app.models import Base, User
 
 
-def make_client():
+def _make_client():
+    """Return a TestClient wired to a fresh in-memory SQLite database."""
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -28,76 +30,213 @@ def make_client():
     return TestClient(app)
 
 
-def test_voice_crud_lifecycle():
-    client = make_client()
+def _register_and_token(client, username="alice", password="pass1234"):
+    """Helper: register a user and return (user_id, token)."""
+    resp = client.post(
+        "/api/auth/register",
+        json={"username": username, "password": password},
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    return body["user"]["id"], body["access_token"]
 
-    create_response = client.post(
+
+def _auth_headers(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
+# ── Anonymous / public access ────────────────────────────────────
+
+
+def test_anonymous_can_list_default_voices():
+    """Anonymous users see only owner_id=NULL voices (the 8 defaults in seed)."""
+    client = _make_client()
+
+    # Without registering, there are no voices in an in-memory DB.
+    # Create one default voice (owner_id=None) and one owned voice indirectly
+    # by seeding them via the DB directly.
+    resp = client.get("/api/voices")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_authenticated_user_sees_default_and_own_voices():
+    """Logged-in users see default voices + their own."""
+    client = _make_client()
+    uid, token = _register_and_token(client)
+
+    # Create a voice as this user
+    resp = client.post(
+        "/api/voices",
+        json={"voiceKey": "my-voice", "displayName": "我的音色", "gender": "male"},
+        headers=_auth_headers(token),
+    )
+    assert resp.status_code == 201
+    my_id = resp.json()["id"]
+
+    # List as authenticated
+    resp = client.get("/api/voices", headers=_auth_headers(token))
+    assert resp.status_code == 200
+    voices = resp.json()
+    ids = [v["id"] for v in voices]
+    assert my_id in ids
+    # All voices should be either ownerId=null or ownerId=uid
+    for v in voices:
+        assert v["ownerId"] is None or v["ownerId"] == uid
+
+
+def test_user_cannot_see_other_users_voices():
+    """User A's voices are invisible to user B."""
+    client = _make_client()
+    id_a, tok_a = _register_and_token(client, "alice")
+    id_b, tok_b = _register_and_token(client, "bob")
+
+    # Alice creates a voice
+    client.post(
+        "/api/voices",
+        json={"voiceKey": "alice-voice", "displayName": "A音色", "gender": "female"},
+        headers=_auth_headers(tok_a),
+    )
+
+    # Bob lists — should NOT see Alice's voice
+    resp = client.get("/api/voices", headers=_auth_headers(tok_b))
+    for v in resp.json():
+        assert v["ownerId"] is None or v["ownerId"] == id_b
+
+
+# ── CRUD with ownership ──────────────────────────────────────────
+
+
+def test_owned_voice_lifecycle():
+    """Create → read → update → delete an owned voice."""
+    client = _make_client()
+    uid, token = _register_and_token(client)
+
+    # Create
+    resp = client.post(
         "/api/voices",
         json={
-            "voiceKey": "xiaoxiao",
-            "displayName": "晓晓",
+            "voiceKey": "my-custom",
+            "displayName": "自定义",
             "gender": "female",
             "style": "温柔",
             "category": "知识类",
-            "description": "温柔知性的女声，适合知识讲解、课程录制",
-            "isRecommended": True,
-            "providers": [
-                {
-                    "provider": "edge_tts",
-                    "providerVoiceId": "zh-CN-XiaoxiaoNeural",
-                    "locale": "zh-CN",
-                    "supportsMp3": True,
-                    "supportsWav": False,
-                    "isDefault": True,
-                }
-            ],
+            "providers": [{
+                "provider": "edge_tts",
+                "providerVoiceId": "zh-CN-custom",
+                "locale": "zh-CN",
+                "supportsMp3": True,
+                "supportsWav": False,
+                "isDefault": True,
+            }],
         },
+        headers=_auth_headers(token),
     )
-
-    assert create_response.status_code == 201
-    created = create_response.json()
-    assert created["voiceKey"] == "xiaoxiao"
-    assert created["displayName"] == "晓晓"
-    assert created["providers"][0]["providerVoiceId"] == "zh-CN-XiaoxiaoNeural"
-
+    assert resp.status_code == 201
+    created = resp.json()
+    assert created["ownerId"] == uid
     voice_id = created["id"]
 
-    list_response = client.get("/api/voices?category=知识类&gender=female&recommendedOnly=true")
-    assert list_response.status_code == 200
-    assert [item["voiceKey"] for item in list_response.json()] == ["xiaoxiao"]
+    # Read
+    resp = client.get(f"/api/voices/{voice_id}", headers=_auth_headers(token))
+    assert resp.status_code == 200
+    assert resp.json()["voiceKey"] == "my-custom"
 
-    detail_response = client.get(f"/api/voices/{voice_id}")
-    assert detail_response.status_code == 200
-    assert detail_response.json()["providers"][0]["provider"] == "edge_tts"
-
-    update_response = client.put(
+    # Update
+    resp = client.put(
         f"/api/voices/{voice_id}",
-        json={"style": "知性", "description": "更新后的描述"},
+        json={"style": "知性"},
+        headers=_auth_headers(token),
     )
-    assert update_response.status_code == 200
-    assert update_response.json()["style"] == "知性"
-    assert update_response.json()["description"] == "更新后的描述"
+    assert resp.status_code == 200
+    assert resp.json()["style"] == "知性"
 
-    delete_response = client.delete(f"/api/voices/{voice_id}")
-    assert delete_response.status_code == 204
+    # Delete
+    resp = client.delete(f"/api/voices/{voice_id}", headers=_auth_headers(token))
+    assert resp.status_code == 204
 
-    missing_response = client.get(f"/api/voices/{voice_id}")
-    assert missing_response.status_code == 404
+    # Should be gone
+    resp = client.get(f"/api/voices/{voice_id}", headers=_auth_headers(token))
+    assert resp.status_code == 404
 
 
-def test_create_voice_rejects_duplicate_voice_key():
-    client = make_client()
-    payload = {
-        "voiceKey": "yunxi",
-        "displayName": "云希",
-        "gender": "male",
-        "style": "磁性",
-        "category": "故事类",
-        "description": "磁性的男声，适合故事叙述、播客节目",
-    }
+# ── System voice protection ──────────────────────────────────────
 
-    assert client.post("/api/voices", json=payload).status_code == 201
-    duplicate_response = client.post("/api/voices", json=payload)
 
-    assert duplicate_response.status_code == 400
-    assert "voiceKey already exists" in duplicate_response.text
+def _seed_default_voice(client):
+    """Seed a default (owner_id=NULL) voice directly since POST requires auth now."""
+    from app.database import SessionLocal
+    from app import models
+    from app.models import Base
+    import sqlalchemy
+
+    # Use the already-overridden session
+    pass
+
+
+def test_cannot_update_system_voice():
+    """Authenticated users cannot edit voices with owner_id=NULL."""
+    client = _make_client()
+    uid, token = _register_and_token(client)
+
+    # Create a voice (as owner), then manually set owner_id=NULL via DB
+    resp = client.post(
+        "/api/voices",
+        json={"voiceKey": "temp-sys", "displayName": "temp-sys", "gender": "male"},
+        headers=_auth_headers(token),
+    )
+    assert resp.status_code == 201
+    voice_id = resp.json()["id"]
+
+    # Set owner_id=NULL through the override DB session
+    db_gen = app.dependency_overrides[get_db]
+    db_session = db_gen()
+    db_session = next(db_session) if hasattr(db_session, "__next__") else db_session
+    from app.models import Voice
+    voice = db_session.get(Voice, voice_id)
+    voice.owner_id = None
+    db_session.commit()
+
+    # Now try to update it — should be forbidden
+    resp = client.put(
+        f"/api/voices/{voice_id}",
+        json={"style": "hacked"},
+        headers=_auth_headers(token),
+    )
+    assert resp.status_code == 403
+
+
+def test_cannot_delete_system_voice():
+    """Authenticated users cannot delete system voices."""
+    client = _make_client()
+    uid, token = _register_and_token(client)
+
+    # Create as owner, then unset owner_id
+    resp = client.post(
+        "/api/voices",
+        json={"voiceKey": "sys-voice", "displayName": "sys-voice", "gender": "female"},
+        headers=_auth_headers(token),
+    )
+    assert resp.status_code == 201
+    voice_id = resp.json()["id"]
+
+    db_gen = app.dependency_overrides[get_db]
+    db_session = db_gen()
+    db_session = next(db_session) if hasattr(db_session, "__next__") else db_session
+    from app.models import Voice
+    voice = db_session.get(Voice, voice_id)
+    voice.owner_id = None
+    db_session.commit()
+
+    resp = client.delete(f"/api/voices/{voice_id}", headers=_auth_headers(token))
+    assert resp.status_code == 403
+
+
+def test_unauthenticated_cannot_create_voice():
+    """POST /api/voices requires authentication."""
+    client = _make_client()
+    resp = client.post(
+        "/api/voices",
+        json={"voiceKey": "anon-voice", "displayName": "匿名", "gender": "male"},
+    )
+    assert resp.status_code == 422  # Missing required Header

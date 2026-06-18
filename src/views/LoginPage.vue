@@ -120,10 +120,22 @@
             <div class="input-box">
               <Lock :size="18" class="input-icon" />
               <input
-                type="password"
+                :type="showPwd ? 'text' : 'password'"
                 v-model="regForm.confirmPassword"
                 placeholder="请再次输入密码"
                 required
+              />
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>邮箱（选填）</label>
+            <div class="input-box">
+              <Mail :size="18" class="input-icon" />
+              <input
+                type="email"
+                v-model="regForm.email"
+                placeholder="请输入邮箱地址（选填）"
               />
             </div>
           </div>
@@ -156,7 +168,7 @@
 import { ref, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
-import { Mic, Drama, Music, Zap, User, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-vue-next'
+import { Mic, Drama, Music, Zap, User, Lock, Eye, EyeOff, ArrowLeft, Mail } from 'lucide-vue-next'
 
 const router = useRouter()
 const store = useAppStore()
@@ -174,7 +186,8 @@ const loginForm = reactive({
 const regForm = reactive({
   username: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  email: ''
 })
 
 watch(isRegister, () => {
@@ -183,6 +196,7 @@ watch(isRegister, () => {
   regForm.username = ''
   regForm.password = ''
   regForm.confirmPassword = ''
+  regForm.email = ''
   showPwd.value = false
   errorMsg.value = ''
 })
@@ -199,13 +213,13 @@ function forgotPassword() {
   alert('请联系管理员重置密码')
 }
 
-function handleLogin() {
+async function handleLogin() {
   errorMsg.value = ''
   if (!loginForm.username.trim() || !loginForm.password.trim()) {
     errorMsg.value = '请输入账户名称和密码'
     return
   }
-  const result = store.login(loginForm.username.trim(), loginForm.password.trim())
+  const result = await store.login(loginForm.username.trim(), loginForm.password.trim())
   if (!result.success) {
     errorMsg.value = result.message
     return
@@ -218,7 +232,7 @@ function handleLogin() {
   router.push('/')
 }
 
-function handleRegister() {
+async function handleRegister() {
   errorMsg.value = ''
   if (!regForm.username.trim() || !regForm.password.trim()) {
     errorMsg.value = '请填写完整的注册信息'
@@ -232,7 +246,7 @@ function handleRegister() {
     errorMsg.value = '密码长度不能少于4位'
     return
   }
-  const result = store.register(regForm.username.trim(), regForm.password.trim())
+  const result = await store.register(regForm.username.trim(), regForm.password.trim(), regForm.email.trim())
   if (!result.success) {
     errorMsg.value = result.message
     return

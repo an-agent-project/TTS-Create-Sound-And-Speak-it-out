@@ -1,5 +1,7 @@
-﻿import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { defineStore } from "pinia";
+import { ref } from "vue";
+
+const AUTH_TOKEN_KEY = "auth_token";
 
 export const useAppStore = defineStore("app", () => {
   const works = ref([]);
@@ -18,118 +20,152 @@ export const useAppStore = defineStore("app", () => {
     bgmVolume: 30,
   });
 
-  // User auth state
+  // ── Auth state ───────────────────────────────────────────────────
+
   const isLoggedIn = ref(false);
+  const token = ref("");
   const user = ref({
-    id: "",
+    id: 0,
     username: "",
     email: "",
     avatar: "",
     phone: "",
-    registeredAt: "",
+    created_at: "",
   });
 
-  function login(username, password) {
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const found = users.find(
-      (u) => u.username === username && u.password === password
-    );
-    if (!found) {
-      return { success: false, message: "账户名或密码错误" };
+  /** Persist token to localStorage so it survives page-reloads. */
+  function _saveToken(t) {
+    token.value = t;
+    localStorage.setItem(AUTH_TOKEN_KEY, t);
+  }
+
+  /** Build Authorization header if we have a token. */
+  function _authHeaders() {
+    if (!token.value) return {};
+    return { Authorization: `Bearer ${token.value}` };
+  }
+
+  // ── Auth actions ─────────────────────────────────────────────────
+
+  async function login(username, password) {
+    const resp = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      return { success: false, message: data.detail || "登录失败" };
     }
+    _saveToken(data.access_token);
     isLoggedIn.value = true;
     user.value = {
-      id: found.id,
-      username: found.username,
-      email: found.email || "",
-      avatar: found.avatar || "",
-      phone: found.phone || "",
-      registeredAt: found.registeredAt,
+      id: data.user.id,
+      username: data.user.username,
+      email: data.user.email || "",
+      avatar: data.user.avatar || "",
+      phone: data.user.phone || "",
+      created_at: data.user.created_at || "",
     };
-    localStorage.setItem("user", JSON.stringify(user.value));
-    localStorage.setItem("isLoggedIn", "true");
     return { success: true };
   }
 
-  function register(username, password) {
-    if (!username || !password) {
-      return { success: false, message: "账户名和密码不能为空" };
+  async function register(username, password, email) {
+    const resp = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, email: email || undefined }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      return { success: false, message: data.detail || "注册失败" };
     }
-    if (password.length < 4) {
-      return { success: false, message: "密码长度不能少于4位" };
-    }
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    if (users.find((u) => u.username === username)) {
-      return { success: false, message: "该账户名已被注册" };
-    }
-    const newUser = {
-      id: Date.now().toString(),
-      username,
-      email: "",
-      password,
-      avatar: "",
-      phone: "",
-      registeredAt: new Date().toISOString(),
-    };
-    users.push(newUser);
-    localStorage.setItem("users", JSON.stringify(users));
-    // Auto login after register
+    _saveToken(data.access_token);
     isLoggedIn.value = true;
     user.value = {
-      id: newUser.id,
-      username: newUser.username,
-      email: newUser.email,
-      avatar: newUser.avatar,
-      phone: newUser.phone,
-      registeredAt: newUser.registeredAt,
+      id: data.user.id,
+      username: data.user.username,
+      email: data.user.email || "",
+      avatar: data.user.avatar || "",
+      phone: data.user.phone || "",
+      created_at: data.user.created_at || "",
     };
-    localStorage.setItem("user", JSON.stringify(user.value));
-    localStorage.setItem("isLoggedIn", "true");
     return { success: true };
   }
 
   function logout() {
     isLoggedIn.value = false;
-    user.value = { id: "", username: "", email: "", avatar: "", phone: "", registeredAt: "" };
-    localStorage.removeItem("user");
-    localStorage.removeItem("isLoggedIn");
+    token.value = "";
+    user.value = { id: 0, username: "", email: "", avatar: "", phone: "", created_at: "" };
+    localStorage.removeItem(AUTH_TOKEN_KEY);
   }
 
-  function updatePhone(phoneNumber) {
-    user.value.phone = phoneNumber;
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const idx = users.findIndex((u) => u.id === user.value.id);
-    if (idx > -1) {
-      users[idx].phone = phoneNumber;
-      localStorage.setItem("users", JSON.stringify(users));
-    }
-    localStorage.setItem("user", JSON.stringify(user.value));
-  }
-
-  function updateAvatar(avatarData) {
-    user.value.avatar = avatarData;
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const idx = users.findIndex((u) => u.id === user.value.id);
-    if (idx > -1) {
-      users[idx].avatar = avatarData;
-      localStorage.setItem("users", JSON.stringify(users));
-    }
-    localStorage.setItem("user", JSON.stringify(user.value));
-  }
-
-  // Init from localStorage
-  function initFromStorage() {
-    const stored = localStorage.getItem("isLoggedIn");
-    if (stored === "true") {
-      const userData = JSON.parse(localStorage.getItem("user") || "{}");
-      if (userData.id) {
-        isLoggedIn.value = true;
-        user.value = userData;
+  /** Fetch the latest user profile from the server (used after page reload). */
+  async function fetchMe() {
+    if (!token.value) return;
+    try {
+      const resp = await fetch("/api/auth/me", { headers: _authHeaders() });
+      if (!resp.ok) {
+        // Token expired / invalid — force logout
+        logout();
+        return;
       }
+      const data = await resp.json();
+      user.value = {
+        id: data.id,
+        username: data.username,
+        email: data.email || "",
+        avatar: data.avatar || "",
+        phone: data.phone || "",
+        created_at: data.created_at || "",
+      };
+      isLoggedIn.value = true;
+    } catch {
+      // Network error — stay logged in with cached state
     }
   }
 
-  initFromStorage();
+  /** Generic profile update — sends partial fields to PUT /api/auth/me. */
+  async function updateMe(fields) {
+    // Optimistically update local state
+    for (const key of Object.keys(fields)) {
+      if (key in user.value) user.value[key] = fields[key];
+    }
+    try {
+      await fetch("/api/auth/me", {
+        method: "PUT",
+        headers: { ..._authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify(fields),
+      });
+    } catch {
+      // Silently fail — local state already updated
+    }
+  }
+
+  /** Change password via the dedicated backend endpoint. */
+  async function changePassword(oldPassword, newPassword) {
+    const resp = await fetch("/api/auth/change-password", {
+      method: "POST",
+      headers: { ..._authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+    });
+    if (!resp.ok) {
+      const data = await resp.json();
+      return { success: false, message: data.detail || "密码修改失败" };
+    }
+    return { success: true };
+  }
+
+  // ── Initialisation ───────────────────────────────────────────────
+
+  const savedToken = localStorage.getItem(AUTH_TOKEN_KEY);
+  if (savedToken) {
+    token.value = savedToken;
+    // Validate against the server (don't block app startup)
+    fetchMe();
+  }
+
+  // ── Works ────────────────────────────────────────────────────────
 
   function addWork(work) {
     works.value.unshift({
@@ -145,6 +181,8 @@ export const useAppStore = defineStore("app", () => {
     works.value = works.value.filter((w) => w.id !== id);
   }
 
+  // ── Voice favorites ──────────────────────────────────────────────
+
   function toggleFavoriteVoice(voiceId) {
     const idx = favoriteVoices.value.indexOf(voiceId);
     if (idx > -1) {
@@ -157,6 +195,8 @@ export const useAppStore = defineStore("app", () => {
   function isFavorite(voiceId) {
     return favoriteVoices.value.includes(voiceId);
   }
+
+  // ── Workspace helpers ────────────────────────────────────────────
 
   function resetWorkspace() {
     selectedScene.value = null;
@@ -181,12 +221,14 @@ export const useAppStore = defineStore("app", () => {
     currentWork,
     settings,
     isLoggedIn,
+    token,
     user,
     login,
     register,
     logout,
-    updatePhone,
-    updateAvatar,
+    fetchMe,
+    updateMe,
+    changePassword,
     addWork,
     deleteWork,
     toggleFavoriteVoice,

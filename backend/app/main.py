@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.api.auth import router as auth_router
 from app.api.tts import router as tts_router
 from app.api.voices import router as voices_router
 
@@ -24,6 +25,7 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.include_router(auth_router)
 app.include_router(tts_router)
 app.include_router(voices_router)
 

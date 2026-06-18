@@ -9,12 +9,19 @@ def list_voices(
     category: str | None = None,
     gender: str | None = None,
     recommended_only: bool = False,
+    user_id: int | None = None,
 ) -> list[models.Voice]:
     query = (
         db.query(models.Voice)
         .options(selectinload(models.Voice.providers))
         .filter(models.Voice.is_active.is_(True))
     )
+    if user_id is not None:
+        query = query.filter(
+            (models.Voice.owner_id.is_(None)) | (models.Voice.owner_id == user_id)
+        )
+    else:
+        query = query.filter(models.Voice.owner_id.is_(None))
     if category:
         query = query.filter(models.Voice.category == category)
     if gender:
@@ -24,20 +31,33 @@ def list_voices(
     return query.order_by(models.Voice.id.asc()).all()
 
 
-def get_voice(db: Session, voice_id: int) -> models.Voice | None:
-    return (
+def get_voice(
+    db: Session,
+    voice_id: int,
+    user_id: int | None = None,
+) -> models.Voice | None:
+    query = (
         db.query(models.Voice)
         .options(selectinload(models.Voice.providers))
-        .filter(models.Voice.id == voice_id, models.Voice.is_active.is_(True))
-        .first()
+        .filter(
+            models.Voice.id == voice_id,
+            models.Voice.is_active.is_(True),
+        )
     )
+    if user_id is not None:
+        query = query.filter(
+            (models.Voice.owner_id.is_(None)) | (models.Voice.owner_id == user_id)
+        )
+    else:
+        query = query.filter(models.Voice.owner_id.is_(None))
+    return query.first()
 
 
 def get_voice_by_key(db: Session, voice_key: str) -> models.Voice | None:
     return db.query(models.Voice).filter(models.Voice.voice_key == voice_key).first()
 
 
-def create_voice(db: Session, payload: VoiceCreate) -> models.Voice:
+def create_voice(db: Session, payload: VoiceCreate, owner_id: int) -> models.Voice:
     voice = models.Voice(
         voice_key=payload.voice_key,
         display_name=payload.display_name,
@@ -47,6 +67,7 @@ def create_voice(db: Session, payload: VoiceCreate) -> models.Voice:
         description=payload.description,
         is_recommended=payload.is_recommended,
         is_active=True,
+        owner_id=owner_id,
     )
     for provider in payload.providers:
         voice.providers.append(
@@ -63,20 +84,36 @@ def create_voice(db: Session, payload: VoiceCreate) -> models.Voice:
     db.add(voice)
     db.commit()
     db.refresh(voice)
-    return get_voice(db, voice.id)
+    return get_voice(db, voice.id, user_id=owner_id)
 
 
-def update_voice(db: Session, voice: models.Voice, payload: VoiceUpdate) -> models.Voice:
+def update_voice(
+    db: Session,
+    voice: models.Voice,
+    payload: VoiceUpdate,
+    user_id: int,
+) -> models.Voice | None:
+    """Update a voice. Only permitted for voices owned by `user_id`."""
+    if voice.owner_id != user_id:
+        return None
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(voice, field, value)
     db.commit()
     db.refresh(voice)
-    return get_voice(db, voice.id)
+    return get_voice(db, voice.id, user_id=user_id)
 
 
-def soft_delete_voice(db: Session, voice: models.Voice) -> None:
+def soft_delete_voice(
+    db: Session,
+    voice: models.Voice,
+    user_id: int,
+) -> bool:
+    """Soft-delete a voice. Only permitted for voices owned by `user_id`. Returns success."""
+    if voice.owner_id != user_id:
+        return False
     voice.is_active = False
     for provider in voice.providers:
         provider.is_active = False
     db.commit()
+    return True

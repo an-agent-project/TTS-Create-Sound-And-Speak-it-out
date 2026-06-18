@@ -79,8 +79,9 @@ function handleBind() {
   if (!code.value) { error.value = "请输入验证码"; return; }
   if (code.value !== "123456") { error.value = "验证码错误"; return; }
 
-  store.updatePhone(phone.value);
-  emit("bindSuccess");
+  store.updatePhone(phone.value).then(() => {
+    emit("bindSuccess");
+  });
 }
 </script>
 

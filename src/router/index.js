@@ -1,4 +1,4 @@
-﻿import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHistory } from "vue-router";
 
 const routes = [
   {
@@ -40,11 +40,12 @@ const router = createRouter({
   routes,
 });
 
-// Navigation guard for auth-required routes
+// Navigation guard — check token existence (lightweight, non-blocking).
+// The real JWT validation happens in the store.fetchMe() call.
 router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth) {
-    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-    if (!isLoggedIn) {
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
       next("/login");
       return;
     }

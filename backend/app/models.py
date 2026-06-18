@@ -5,6 +5,20 @@ from sqlalchemy.orm import declarative_base, relationship
 Base = declarative_base()
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), nullable=False, unique=True, index=True)
+    password_hash = Column(String(255), nullable=False)
+    email = Column(String(120))
+    phone = Column(String(20))
+    avatar = Column(Text)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
 class Voice(Base):
     __tablename__ = "voices"
 
@@ -17,6 +31,7 @@ class Voice(Base):
     description = Column(String(255))
     is_recommended = Column(Boolean, nullable=False, default=False, index=True)
     is_active = Column(Boolean, nullable=False, default=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
