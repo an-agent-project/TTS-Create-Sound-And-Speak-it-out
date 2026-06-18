@@ -1,8 +1,37 @@
+﻿import hashlib
+import secrets
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import declarative_base, relationship
 
 
 Base = declarative_base()
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), nullable=False, unique=True, index=True)
+    username = Column(String(50), nullable=False)
+    password_hash = Column(String(128), nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+    @staticmethod
+    def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
+        salt = salt or secrets.token_hex(16)
+        h = hashlib.sha256((password + salt).encode()).hexdigest()
+        return f"{salt}${h}", salt
+
+    @staticmethod
+    def verify_password(password: str, password_hash: str) -> bool:
+        try:
+            salt, _ = password_hash.split("$", 1)
+            hashed, _ = User.hash_password(password, salt)
+            return hashed == password_hash
+        except (ValueError, AttributeError):
+            return False
 
 
 class Voice(Base):
@@ -13,7 +42,7 @@ class Voice(Base):
     display_name = Column(String(50), nullable=False)
     gender = Column(String(20), nullable=False)
     style = Column(String(50))
-    category = Column(String(50), index=True)
+    category = Column(String(100), index=True)
     description = Column(String(255))
     is_recommended = Column(Boolean, nullable=False, default=False, index=True)
     is_active = Column(Boolean, nullable=False, default=True)

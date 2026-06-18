@@ -1,4 +1,4 @@
-﻿import { defineStore } from "pinia";
+import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 
 export const useAppStore = defineStore("app", () => {
@@ -29,13 +29,30 @@ export const useAppStore = defineStore("app", () => {
     registeredAt: "",
   });
 
+  // ???? API ??????
+  function setUser(apiUser) {
+    if (!apiUser) return;
+    isLoggedIn.value = true;
+    user.value = {
+      id: String(apiUser.id || ""),
+      username: apiUser.username || "",
+      email: apiUser.email || "",
+      avatar: apiUser.avatar || "",
+      phone: apiUser.phone || "",
+      registeredAt: apiUser.createdAt || "",
+    };
+    localStorage.setItem("user", JSON.stringify(user.value));
+    localStorage.setItem("isLoggedIn", "true");
+  }
+
+  // ???? localStorage ????????
   function login(username, password) {
     const users = JSON.parse(localStorage.getItem("users") || "[]");
     const found = users.find(
       (u) => u.username === username && u.password === password
     );
     if (!found) {
-      return { success: false, message: "账户名或密码错误" };
+      return { success: false, message: "????????" };
     }
     isLoggedIn.value = true;
     user.value = {
@@ -51,16 +68,17 @@ export const useAppStore = defineStore("app", () => {
     return { success: true };
   }
 
+  // ???? localStorage ????????
   function register(username, password) {
     if (!username || !password) {
-      return { success: false, message: "账户名和密码不能为空" };
+      return { success: false, message: "??????????" };
     }
     if (password.length < 4) {
-      return { success: false, message: "密码长度不能少于4位" };
+      return { success: false, message: "????????4?" };
     }
     const users = JSON.parse(localStorage.getItem("users") || "[]");
     if (users.find((u) => u.username === username)) {
-      return { success: false, message: "该账户名已被注册" };
+      return { success: false, message: "????????" };
     }
     const newUser = {
       id: Date.now().toString(),
@@ -73,7 +91,6 @@ export const useAppStore = defineStore("app", () => {
     };
     users.push(newUser);
     localStorage.setItem("users", JSON.stringify(users));
-    // Auto login after register
     isLoggedIn.value = true;
     user.value = {
       id: newUser.id,
@@ -182,6 +199,7 @@ export const useAppStore = defineStore("app", () => {
     settings,
     isLoggedIn,
     user,
+    setUser,
     login,
     register,
     logout,

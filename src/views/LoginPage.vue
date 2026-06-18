@@ -1,25 +1,25 @@
-﻿<template>
+<template>
   <div class="login-page">
-    <!-- 左侧品牌区 -->
+    <!-- ????? -->
     <div class="login-left">
       <div class="brand-content">
         <div class="brand-logo">
           <Mic :size="42" class="brand-mic" />
-          <h1>有声读物智能生成系统</h1>
+          <h1>??????????</h1>
         </div>
-        <p class="brand-desc">AI 驱动的语音合成平台，让文字拥有温度</p>
+        <p class="brand-desc">AI ?????????????????</p>
         <div class="feature-list">
           <div class="feature-item">
             <Drama :size="22" />
-            <span>多场景角色扮演</span>
+            <span>???????</span>
           </div>
           <div class="feature-item">
             <Music :size="22" />
-            <span>BGM 智能搭配</span>
+            <span>BGM ????</span>
           </div>
           <div class="feature-item">
             <Zap :size="22" />
-            <span>一键快速生成</span>
+            <span>??????</span>
           </div>
         </div>
       </div>
@@ -30,37 +30,37 @@
       </div>
     </div>
 
-    <!-- 右侧表单区 -->
+    <!-- ????? -->
     <div class="login-right">
       <div class="form-wrapper">
         <div class="form-header">
-          <h2>{{ isRegister ? '创建账号' : '欢迎回来' }}</h2>
-          <p>{{ isRegister ? '注册新账号以使用全部功能' : '登录您的账号以继续' }}</p>
+          <h2>{{ isRegister ? '????' : '????' }}</h2>
+          <p>{{ isRegister ? '????????????' : '?????????' }}</p>
         </div>
 
-        <!-- 登录表单 -->
+        <!-- ???? -->
         <form v-if="!isRegister" @submit.prevent="handleLogin" class="auth-form">
           <div class="input-group">
-            <label>账户名称</label>
+            <label>??</label>
             <div class="input-box">
-              <User :size="18" class="input-icon" />
+              <Mail :size="18" class="input-icon" />
               <input
-                type="text"
-                v-model="loginForm.username"
-                placeholder="请输入账户名称"
+                type="email"
+                v-model="loginForm.email"
+                placeholder="???????"
                 required
               />
             </div>
           </div>
 
           <div class="input-group">
-            <label>密码</label>
+            <label>??</label>
             <div class="input-box">
               <Lock :size="18" class="input-icon" />
               <input
                 :type="showPwd ? 'text' : 'password'"
                 v-model="loginForm.password"
-                placeholder="请输入密码"
+                placeholder="?????"
                 required
               />
               <span class="toggle-pwd" @click="showPwd = !showPwd">
@@ -73,39 +73,76 @@
           <div class="form-options">
             <label class="remember-me">
               <input type="checkbox" v-model="rememberMe" />
-              <span>记住我</span>
+              <span>???</span>
             </label>
-            <a href="#" @click.prevent="forgotPassword">忘记密码?</a>
+            <a href="#" @click.prevent="forgotPassword">?????</a>
           </div>
 
           <div v-if="errorMsg" class="err-msg">{{ errorMsg }}</div>
 
-          <button type="submit" class="submit-btn">登 录</button>
+          <button type="submit" class="submit-btn" :disabled="loggingIn">? ?</button>
         </form>
 
-        <!-- 注册表单 -->
+        <!-- ???? -->
         <form v-if="isRegister" @submit.prevent="handleRegister" class="auth-form">
           <div class="input-group">
-            <label>账户名称</label>
+            <label>??</label>
             <div class="input-box">
-              <User :size="18" class="input-icon" />
+              <Mail :size="18" class="input-icon" />
               <input
-                type="text"
-                v-model="regForm.username"
-                placeholder="请设置账户名称"
+                type="email"
+                v-model="regForm.email"
+                placeholder="???????"
                 required
               />
             </div>
           </div>
 
           <div class="input-group">
-            <label>密码</label>
+            <label>???</label>
+            <div class="code-row">
+              <div class="input-box code-input-box">
+                <ShieldCheck :size="18" class="input-icon" />
+                <input
+                  type="text"
+                  v-model="regForm.code"
+                  placeholder="???6????"
+                  maxlength="6"
+                  required
+                />
+              </div>
+              <button
+                type="button"
+                class="send-code-btn"
+                :disabled="codeCountdown > 0"
+                @click="sendVerificationCode"
+              >
+                {{ codeCountdown > 0 ? codeCountdown + 's' : '?????' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>????</label>
+            <div class="input-box">
+              <User :size="18" class="input-icon" />
+              <input
+                type="text"
+                v-model="regForm.username"
+                placeholder="???????"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>??</label>
             <div class="input-box">
               <Lock :size="18" class="input-icon" />
               <input
                 :type="showPwd ? 'text' : 'password'"
                 v-model="regForm.password"
-                placeholder="请设置密码（至少4位）"
+                placeholder="????????4??"
                 required
               />
               <span class="toggle-pwd" @click="showPwd = !showPwd">
@@ -116,36 +153,38 @@
           </div>
 
           <div class="input-group">
-            <label>确认密码</label>
+            <label>????</label>
             <div class="input-box">
               <Lock :size="18" class="input-icon" />
               <input
                 type="password"
                 v-model="regForm.confirmPassword"
-                placeholder="请再次输入密码"
+                placeholder="???????"
                 required
               />
             </div>
           </div>
 
           <div v-if="errorMsg" class="err-msg">{{ errorMsg }}</div>
+          <div v-if="successMsg" class="success-msg">{{ successMsg }}</div>
 
-          <button type="submit" class="submit-btn">注 册</button>
+          <button type="submit" class="submit-btn" :disabled="registering">? ?</button>
         </form>
 
         <div class="form-footer">
           <template v-if="!isRegister">
-            还没有账号？
-            <a href="#" @click.prevent="switchToRegister">立即注册</a>
+            ??????
+            <a href="#" @click.prevent="switchToRegister">????</a>
           </template>
           <template v-if="isRegister">
-            已有账号？
-            <a href="#" @click.prevent="switchToLogin">立即登录</a>
+            ?????
+            <a href="#" @click.prevent="switchToLogin">????</a>
           </template>
         </div>
 
         <router-link to="/" class="back-home">
-          <ArrowLeft :size="14" /> 返回首页
+          <ArrowLeft :size="14" />
+          ????
         </router-link>
       </div>
     </div>
@@ -156,35 +195,47 @@
 import { ref, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
-import { Mic, Drama, Music, Zap, User, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-vue-next'
+import { Mic, Drama, Music, Zap, User, Lock, Eye, EyeOff, Mail, ShieldCheck, ArrowLeft } from 'lucide-vue-next'
 
 const router = useRouter()
 const store = useAppStore()
 
 const isRegister = ref(false)
-const errorMsg = ref('')
-const rememberMe = ref(false)
 const showPwd = ref(false)
+const errorMsg = ref('')
+const successMsg = ref('')
+const rememberMe = ref(false)
+const loggingIn = ref(false)
+const registering = ref(false)
+const codeCountdown = ref(0)
+let countdownTimer = null
 
 const loginForm = reactive({
-  username: '',
+  email: '',
   password: ''
 })
 
 const regForm = reactive({
+  email: '',
+  code: '',
   username: '',
   password: '',
   confirmPassword: ''
 })
 
+// ?????????
 watch(isRegister, () => {
-  loginForm.username = ''
+  loginForm.email = ''
   loginForm.password = ''
+  regForm.email = ''
+  regForm.code = ''
   regForm.username = ''
   regForm.password = ''
   regForm.confirmPassword = ''
-  showPwd.value = false
   errorMsg.value = ''
+  successMsg.value = ''
+  codeCountdown.value = 0
+  if (countdownTimer) clearInterval(countdownTimer)
 })
 
 function switchToRegister() {
@@ -196,53 +247,158 @@ function switchToLogin() {
 }
 
 function forgotPassword() {
-  alert('请联系管理员重置密码')
+  alert('??????????')
 }
 
-function handleLogin() {
+// ---------- ????? ----------
+
+async function sendVerificationCode() {
   errorMsg.value = ''
-  if (!loginForm.username.trim() || !loginForm.password.trim()) {
-    errorMsg.value = '请输入账户名称和密码'
+  successMsg.value = ''
+
+  if (!regForm.email.trim()) {
+    errorMsg.value = '????????'
     return
   }
-  const result = store.login(loginForm.username.trim(), loginForm.password.trim())
-  if (!result.success) {
-    errorMsg.value = result.message
+
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  if (!emailRegex.test(regForm.email.trim())) {
+    errorMsg.value = '???????'
     return
   }
-  if (rememberMe.value) {
-    localStorage.setItem('rememberedUser', loginForm.username.trim())
-  } else {
-    localStorage.removeItem('rememberedUser')
+
+  try {
+    const response = await fetch('/api/auth/send-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: regForm.email.trim().toLowerCase() }),
+    })
+
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.detail || '????')
+    }
+
+    const data = await response.json()
+    successMsg.value = '??????? ' + regForm.email.trim()
+    // ?????????
+    if (data.code) {
+      console.log('[DEV] ???:', data.code)
+    }
+
+    // ??? 60 ?
+    codeCountdown.value = 60
+    countdownTimer = setInterval(() => {
+      codeCountdown.value--
+      if (codeCountdown.value <= 0) {
+        clearInterval(countdownTimer)
+      }
+    }, 1000)
+  } catch (err) {
+    errorMsg.value = err.message || '???????'
   }
-  router.push('/')
 }
 
-function handleRegister() {
+// ---------- ?? ----------
+
+async function handleLogin() {
   errorMsg.value = ''
-  if (!regForm.username.trim() || !regForm.password.trim()) {
-    errorMsg.value = '请填写完整的注册信息'
+  if (!loginForm.email.trim() || !loginForm.password.trim()) {
+    errorMsg.value = '????????'
+    return
+  }
+
+  loggingIn.value = true
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: loginForm.email.trim().toLowerCase(),
+        password: loginForm.password,
+      }),
+    })
+
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.detail || '????')
+    }
+
+    const data = await response.json()
+    store.setUser(data.user)
+
+    if (rememberMe.value) {
+      localStorage.setItem('rememberedEmail', loginForm.email.trim())
+    } else {
+      localStorage.removeItem('rememberedEmail')
+    }
+
+    router.push('/')
+  } catch (err) {
+    errorMsg.value = err.message
+  } finally {
+    loggingIn.value = false
+  }
+}
+
+// ---------- ?? ----------
+
+async function handleRegister() {
+  errorMsg.value = ''
+  successMsg.value = ''
+
+  if (!regForm.email.trim() || !regForm.code.trim() || !regForm.username.trim() || !regForm.password.trim()) {
+    errorMsg.value = '??????????'
+    return
+  }
+  if (regForm.code.length !== 6) {
+    errorMsg.value = '???6????'
     return
   }
   if (regForm.password !== regForm.confirmPassword) {
-    errorMsg.value = '两次密码输入不一致'
+    errorMsg.value = '?????????'
     return
   }
   if (regForm.password.length < 4) {
-    errorMsg.value = '密码长度不能少于4位'
+    errorMsg.value = '????????4?'
     return
   }
-  const result = store.register(regForm.username.trim(), regForm.password.trim())
-  if (!result.success) {
-    errorMsg.value = result.message
-    return
+
+  registering.value = true
+  try {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: regForm.email.trim().toLowerCase(),
+        username: regForm.username.trim(),
+        password: regForm.password,
+        code: regForm.code.trim(),
+      }),
+    })
+
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.detail || '????')
+    }
+
+    const data = await response.json()
+    store.setUser(data.user)
+    successMsg.value = '?????????...'
+    setTimeout(() => {
+      router.push('/')
+    }, 800)
+  } catch (err) {
+    errorMsg.value = err.message
+  } finally {
+    registering.value = false
   }
-  router.push('/')
 }
 
-const remembered = localStorage.getItem('rememberedUser')
+// ???????????
+const remembered = localStorage.getItem('rememberedEmail')
 if (remembered) {
-  loginForm.username = remembered
+  loginForm.email = remembered
   rememberMe.value = true
 }
 </script>
@@ -437,6 +593,40 @@ if (remembered) {
   color: #6366f1;
 }
 
+/* ???? */
+.code-row {
+  display: flex;
+  gap: 10px;
+}
+
+.code-input-box {
+  flex: 1;
+}
+
+.send-code-btn {
+  flex-shrink: 0;
+  min-width: 110px;
+  padding: 10px 14px;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.send-code-btn:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.send-code-btn:disabled {
+  background: #a5b4fc;
+  cursor: not-allowed;
+}
+
 .form-options {
   display: flex;
   align-items: center;
@@ -480,6 +670,16 @@ if (remembered) {
   margin-bottom: 16px;
 }
 
+.success-msg {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
 .submit-btn {
   width: 100%;
   padding: 13px;
@@ -494,13 +694,18 @@ if (remembered) {
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
-.submit-btn:hover {
+.submit-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
 }
 
 .submit-btn:active {
   transform: translateY(0);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .form-footer {

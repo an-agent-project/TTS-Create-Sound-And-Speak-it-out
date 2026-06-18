@@ -1,9 +1,9 @@
-﻿<template>
-  <div class="auth-overlay" @click.self="$emit('close')">
+<template>
+  <div class="auth-overlay" @click.self="('close')">
     <div class="auth-card animate">
       <!-- Avatar & Close -->
       <div class="imgcontainer">
-        <span class="close-btn" @click="$emit('close')" title="关闭">&times;</span>
+        <span class="close-btn" @click="('close')" title="??">&times;</span>
         <img
           src="https://static.runoob.com/images/mix/img_avatar.png"
           alt="Avatar"
@@ -13,75 +13,104 @@
 
       <!-- Login form -->
       <div v-if="!isRegister" class="container">
-        <label><b>账户名称</b></label>
+        <label><b>??</b></label>
         <input
-          type="text"
-          v-model="loginForm.username"
-          placeholder="请输入账户名称"
+          type="email"
+          v-model="loginForm.email"
+          placeholder="???????"
           required
         />
 
-        <label><b>密码</b></label>
+        <label><b>??</b></label>
         <input
           type="password"
           v-model="loginForm.password"
-          placeholder="请输入密码"
+          placeholder="?????"
           required
         />
 
         <div v-if="errorMsg" class="err-msg">{{ errorMsg }}</div>
 
-        <button class="login-btn" type="button" @click="handleLogin">登 录</button>
+        <button class="login-btn" type="button" :disabled="loggingIn" @click="handleLogin">? ?</button>
 
         <label class="remember-me">
           <input type="checkbox" v-model="rememberMe" />
-          记住我
+          ???
         </label>
       </div>
 
       <!-- Register form -->
       <div v-if="isRegister" class="container">
-        <label><b>账户名称</b></label>
+        <label><b>??</b></label>
+        <input
+          type="email"
+          v-model="regForm.email"
+          placeholder="???????"
+          required
+        />
+
+        <label><b>???</b></label>
+        <div class="code-row">
+          <input
+            type="text"
+            class="code-input"
+            v-model="regForm.code"
+            placeholder="6????"
+            maxlength="6"
+            required
+          />
+          <button
+            type="button"
+            class="send-code-btn"
+            :disabled="codeCountdown > 0"
+            @click="sendVerificationCode"
+          >
+            {{ codeCountdown > 0 ? codeCountdown + 's' : '?????' }}
+          </button>
+        </div>
+
+        <label><b>????</b></label>
         <input
           type="text"
           v-model="regForm.username"
-          placeholder="请设置账户名称"
+          placeholder="???????"
           required
         />
 
-        <label><b>密码</b></label>
+        <label><b>??</b></label>
         <input
           type="password"
           v-model="regForm.password"
-          placeholder="请设置密码"
+          placeholder="?????"
           required
         />
 
-        <label><b>确认密码</b></label>
+        <label><b>????</b></label>
         <input
           type="password"
           v-model="regForm.confirmPassword"
-          placeholder="请确认密码"
+          placeholder="?????"
           required
         />
 
         <div v-if="errorMsg" class="err-msg">{{ errorMsg }}</div>
+        <div v-if="successMsg" class="success-msg">{{ successMsg }}</div>
 
-        <button class="login-btn" type="button" @click="handleRegister">注 册</button>
+        <button class="login-btn" type="button" :disabled="registering" @click="handleRegister">? ?</button>
       </div>
 
       <!-- Footer -->
       <div class="container footer-container">
-        <button type="button" class="cancelbtn" @click="$emit('close')">取消</button>
+        <button type="button" class="cancelbtn" @click="('close')">??</button>
         <span class="footer-links">
           <template v-if="!isRegister">
-            <a href="#" @click.prevent="switchToRegister">免费注册</a>
+            <a href="#" @click.prevent="switchToRegister">????</a>
           </template>
           <template v-if="isRegister">
-            <a href="#" @click.prevent="switchToLogin">立即登录</a>
+            <a href="#" @click.prevent="switchToLogin">????</a>
           </template>
           <span class="divider">|</span>
-          <a href="#" @click.prevent="forgotPassword">忘记密码?</a>
+          <a href="#" @click.prevent="forgotPassword">?????</a>
         </span>
       </div>
     </div>
@@ -97,27 +126,39 @@ const store = useAppStore()
 
 const isRegister = ref(false)
 const errorMsg = ref('')
+const successMsg = ref('')
 const rememberMe = ref(false)
+const loggingIn = ref(false)
+const registering = ref(false)
+const codeCountdown = ref(0)
+let countdownTimer = null
 
 const loginForm = reactive({
-  username: '',
+  email: '',
   password: ''
 })
 
 const regForm = reactive({
+  email: '',
+  code: '',
   username: '',
   password: '',
   confirmPassword: ''
 })
 
-// 切换表单时清除数据
+// ?????????
 watch(isRegister, () => {
-  loginForm.username = ''
+  loginForm.email = ''
   loginForm.password = ''
+  regForm.email = ''
+  regForm.code = ''
   regForm.username = ''
   regForm.password = ''
   regForm.confirmPassword = ''
   errorMsg.value = ''
+  successMsg.value = ''
+  codeCountdown.value = 0
+  if (countdownTimer) clearInterval(countdownTimer)
 })
 
 function switchToRegister() {
@@ -129,54 +170,147 @@ function switchToLogin() {
 }
 
 function forgotPassword() {
-  alert('请联系管理员重置密码')
+  alert('??????????')
 }
 
-function handleLogin() {
+// ---------- ????? ----------
+
+async function sendVerificationCode() {
   errorMsg.value = ''
-  if (!loginForm.username.trim() || !loginForm.password.trim()) {
-    errorMsg.value = '请输入账户名称和密码'
+  successMsg.value = ''
+
+  if (!regForm.email.trim()) {
+    errorMsg.value = '????????'
     return
   }
-  const result = store.login(loginForm.username.trim(), loginForm.password.trim())
-  if (!result.success) {
-    errorMsg.value = result.message
-    return
+
+  try {
+    const response = await fetch('/api/auth/send-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: regForm.email.trim().toLowerCase() }),
+    })
+
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.detail || '????')
+    }
+
+    const data = await response.json()
+    successMsg.value = '??????? ' + regForm.email.trim()
+    if (data.code) {
+      console.log('[DEV] ???:', data.code)
+    }
+
+    codeCountdown.value = 60
+    countdownTimer = setInterval(() => {
+      codeCountdown.value--
+      if (codeCountdown.value <= 0) {
+        clearInterval(countdownTimer)
+      }
+    }, 1000)
+  } catch (err) {
+    errorMsg.value = err.message || '???????'
   }
-  if (rememberMe.value) {
-    localStorage.setItem('rememberedUser', loginForm.username.trim())
-  } else {
-    localStorage.removeItem('rememberedUser')
-  }
-  emit('close')
 }
 
-function handleRegister() {
+// ---------- ?? ----------
+
+async function handleLogin() {
   errorMsg.value = ''
-  if (!regForm.username.trim() || !regForm.password.trim()) {
-    errorMsg.value = '请填写完整的注册信息'
+  if (!loginForm.email.trim() || !loginForm.password.trim()) {
+    errorMsg.value = '????????'
+    return
+  }
+
+  loggingIn.value = true
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: loginForm.email.trim().toLowerCase(),
+        password: loginForm.password,
+      }),
+    })
+
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.detail || '????')
+    }
+
+    const data = await response.json()
+    store.setUser(data.user)
+
+    if (rememberMe.value) {
+      localStorage.setItem('rememberedEmail', loginForm.email.trim())
+    } else {
+      localStorage.removeItem('rememberedEmail')
+    }
+
+    emit('close')
+  } catch (err) {
+    errorMsg.value = err.message
+  } finally {
+    loggingIn.value = false
+  }
+}
+
+// ---------- ?? ----------
+
+async function handleRegister() {
+  errorMsg.value = ''
+  successMsg.value = ''
+
+  if (!regForm.email.trim() || !regForm.code.trim() || !regForm.username.trim() || !regForm.password.trim()) {
+    errorMsg.value = '??????????'
+    return
+  }
+  if (regForm.code.length !== 6) {
+    errorMsg.value = '???6????'
     return
   }
   if (regForm.password !== regForm.confirmPassword) {
-    errorMsg.value = '两次密码输入不一致'
+    errorMsg.value = '?????????'
     return
   }
   if (regForm.password.length < 4) {
-    errorMsg.value = '密码长度不能少于4位'
+    errorMsg.value = '????????4?'
     return
   }
-  const result = store.register(regForm.username.trim(), regForm.password.trim())
-  if (!result.success) {
-    errorMsg.value = result.message
-    return
+
+  registering.value = true
+  try {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: regForm.email.trim().toLowerCase(),
+        username: regForm.username.trim(),
+        password: regForm.password,
+        code: regForm.code.trim(),
+      }),
+    })
+
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.detail || '????')
+    }
+
+    const data = await response.json()
+    store.setUser(data.user)
+    emit('close')
+  } catch (err) {
+    errorMsg.value = err.message
+  } finally {
+    registering.value = false
   }
-  emit('close')
 }
 
-// 初始化：填充记住的用户名
-const remembered = localStorage.getItem('rememberedUser')
+// ???????????
+const remembered = localStorage.getItem('rememberedEmail')
 if (remembered) {
-  loginForm.username = remembered
+  loginForm.email = remembered
   rememberMe.value = true
 }
 </script>
@@ -205,7 +339,7 @@ if (remembered) {
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);
 }
 
-/* 头像容器 */
+/* ???? */
 .imgcontainer {
   text-align: center;
   margin: 24px 0 12px 0;
@@ -220,7 +354,7 @@ if (remembered) {
   border: 3px solid #eef2ff;
 }
 
-/* 关闭按钮 */
+/* ???? */
 .close-btn {
   position: absolute;
   right: 25px;
@@ -238,7 +372,7 @@ if (remembered) {
   color: #ef4444;
 }
 
-/* 表单容器 */
+/* ???? */
 .container {
   padding: 16px 28px;
 }
@@ -253,7 +387,8 @@ if (remembered) {
 }
 
 .container input[type="text"],
-.container input[type="password"] {
+.container input[type="password"],
+.container input[type="email"] {
   width: 100%;
   padding: 12px 16px;
   margin: 8px 0;
@@ -276,7 +411,43 @@ if (remembered) {
   color: #bbb;
 }
 
-/* 记住我 */
+/* ???? */
+.code-row {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.code-input {
+  flex: 1;
+  margin: 0 !important;
+}
+
+.send-code-btn {
+  flex-shrink: 0;
+  min-width: 100px;
+  padding: 8px 10px;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.send-code-btn:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.send-code-btn:disabled {
+  background: #a5b4fc;
+  cursor: not-allowed;
+}
+
+/* ??? */
 .remember-me {
   display: flex !important;
   align-items: center;
@@ -294,7 +465,7 @@ if (remembered) {
   accent-color: #6366f1;
 }
 
-/* 错误信息 */
+/* ???? */
 .err-msg {
   background: #fff2f0;
   border: 1px solid #ffccc7;
@@ -305,7 +476,18 @@ if (remembered) {
   margin-top: 8px;
 }
 
-/* 登录/注册按钮 */
+/* ???? */
+.success-msg {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* ??/???? */
 .login-btn {
   width: 100%;
   padding: 12px;
@@ -321,12 +503,17 @@ if (remembered) {
   transition: background 0.2s;
 }
 
-.login-btn:hover {
+.login-btn:hover:not(:disabled) {
   background: #4f46e5;
   opacity: 0.9;
 }
 
-/* 底部区域 */
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ???? */
 .footer-container {
   background-color: #f1f1f1;
   border-radius: 0 0 12px 12px;
@@ -375,7 +562,7 @@ if (remembered) {
   color: #ccc;
 }
 
-/* 响应式 */
+/* ??? */
 @media screen and (max-width: 480px) {
   .auth-card {
     width: 95vw;
@@ -428,7 +615,7 @@ if (remembered) {
   }
 }
 
-/* 动画 */
+/* ?? */
 .animate {
   -webkit-animation: animatezoom 0.5s;
   animation: animatezoom 0.35s;
