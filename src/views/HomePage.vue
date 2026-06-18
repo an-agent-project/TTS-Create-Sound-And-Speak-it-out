@@ -198,12 +198,12 @@ const featuredVoices = [
     isRecommended: true,
   },
   {
-    id: "zh-CN-YunjianNeural",
-    name: "云健",
+    id: "zh-CN-YunxiaNeural",
+    name: "云夏",
     gender: "male",
-    style: "活力",
-    category: "播客类",
-    description: "充满活力的男声，适合运动、户外类内容",
+    style: "沉稳",
+    category: "知识类",
+    description: "沉稳专业的男声，适合纪录片、教程配音",
     isRecommended: true,
   },
 ];

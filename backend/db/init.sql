@@ -85,18 +85,10 @@ INSERT INTO voices (
   ('yunxi', '云希', 'male', '磁性', '故事类', '磁性的男声，适合故事叙述、播客节目', TRUE),
   ('xiaoyi', '晓伊', 'female', '活泼', '情感类', '活泼可爱的女声，适合轻松内容、情感表达', TRUE),
   ('yunjian', '云健', 'male', '活力', '播客类', '充满活力的男声，适合运动、户外类内容', TRUE),
-  ('xiaochen', '晓辰', 'female', '沉稳', '知识类', '沉稳大气的女声，适合正式场合配音', FALSE),
   ('yunyang', '云扬', 'male', '阳光', '播客类', '阳光开朗的男声，适合轻松愉快的播客内容', FALSE),
-  ('xiaohan', '晓涵', 'female', '甜美', '情感类', '甜美清新的女声，适合朗读、有声书', FALSE),
-  ('yunfeng', '云枫', 'male', '沉稳', '知识类', '沉稳专业的男声，适合纪录片、教程配音', FALSE),
-  ('xiaomeng', '晓梦', 'female', '亲切', '播客类', '亲切自然的女声，适合日常聊天类播客', FALSE),
-  ('yunze', '云泽', 'male', '温和', '故事类', '温和有磁性的男声，适合睡前故事朗读', FALSE),
-  ('hunan-xiaoxiao', '湖南晓晓', 'female', '方言', '故事类', '湖南方言女声，适合方言类有声内容', FALSE),
+  ('yunxia', '云夏', 'male', '沉稳', '知识类', '沉稳专业的男声，适合纪录片、教程配音', FALSE),
   ('liaoning-xiaobei', '东北小北', 'female', '方言', '播客类', '东北方言女声，适合搞笑、地域类内容', FALSE),
-  ('shaanxi-xiaoni', '陕西小妮', 'female', '方言', '故事类', '陕西方言女声，适合方言类有声读物', FALSE),
-  ('xiaoyou', '晓悠', 'child', '童真', '故事类', '稚嫩童声，适合儿童故事、绘本朗读', FALSE),
-  ('yunhao', '云浩', 'male', '激情', '播客类', '充满激情的男声，适合体育、赛事类解说', FALSE),
-  ('xiaorui', '晓蕊', 'female', '知性', '知识类', '知性优雅的女声，适合人文社科类内容', FALSE)
+  ('shaanxi-xiaoni', '陕西小妮', 'female', '方言', '故事类', '陕西方言女声，适合方言类有声读物', FALSE)
 ON DUPLICATE KEY UPDATE
   display_name = VALUES(display_name),
   gender = VALUES(gender),
@@ -105,6 +97,14 @@ ON DUPLICATE KEY UPDATE
   description = VALUES(description),
   is_recommended = VALUES(is_recommended),
   is_active = TRUE;
+
+-- Mark voices that no longer exist in Edge-TTS as inactive.
+-- These IDs were originally included but Microsoft has never published them.
+UPDATE voices SET is_active = FALSE
+WHERE voice_key IN (
+  'xiaochen', 'xiaohan', 'yunfeng', 'xiaomeng', 'yunze',
+  'hunan-xiaoxiao', 'xiaoyou', 'yunhao', 'xiaorui'
+);
 
 INSERT INTO voice_provider_profiles (
   voice_id,
@@ -121,18 +121,10 @@ FROM (
   UNION ALL SELECT 'yunxi', 'zh-CN-YunxiNeural'
   UNION ALL SELECT 'xiaoyi', 'zh-CN-XiaoyiNeural'
   UNION ALL SELECT 'yunjian', 'zh-CN-YunjianNeural'
-  UNION ALL SELECT 'xiaochen', 'zh-CN-XiaochenNeural'
   UNION ALL SELECT 'yunyang', 'zh-CN-YunyangNeural'
-  UNION ALL SELECT 'xiaohan', 'zh-CN-XiaohanNeural'
-  UNION ALL SELECT 'yunfeng', 'zh-CN-YunfengNeural'
-  UNION ALL SELECT 'xiaomeng', 'zh-CN-XiaomengNeural'
-  UNION ALL SELECT 'yunze', 'zh-CN-YunzeNeural'
-  UNION ALL SELECT 'hunan-xiaoxiao', 'zh-CN-HunanXiaoxiaoNeural'
+  UNION ALL SELECT 'yunxia', 'zh-CN-YunxiaNeural'
   UNION ALL SELECT 'liaoning-xiaobei', 'zh-CN-liaoning-XiaobeiNeural'
   UNION ALL SELECT 'shaanxi-xiaoni', 'zh-CN-shaanxi-XiaoniNeural'
-  UNION ALL SELECT 'xiaoyou', 'zh-CN-XiaoyouNeural'
-  UNION ALL SELECT 'yunhao', 'zh-CN-YunhaoNeural'
-  UNION ALL SELECT 'xiaorui', 'zh-CN-XiaoruiNeural'
 ) AS seed
 JOIN voices ON voices.voice_key = seed.voice_key
 ON DUPLICATE KEY UPDATE
@@ -142,3 +134,12 @@ ON DUPLICATE KEY UPDATE
   supports_mp3 = VALUES(supports_mp3),
   is_default = VALUES(is_default),
   is_active = TRUE;
+
+-- Mark provider profiles for invalid voices as inactive as well.
+UPDATE voice_provider_profiles
+SET is_active = FALSE
+WHERE provider_voice_id IN (
+  'zh-CN-XiaochenNeural', 'zh-CN-XiaohanNeural', 'zh-CN-YunfengNeural',
+  'zh-CN-XiaomengNeural', 'zh-CN-YunzeNeural', 'zh-CN-HunanXiaoxiaoNeural',
+  'zh-CN-XiaoyouNeural', 'zh-CN-YunhaoNeural', 'zh-CN-XiaoruiNeural'
+);
