@@ -26,3 +26,5 @@ backend/static/previews/*.tmp
 # OS / editor
 .DS_Store
 *.local
+
+*.db
