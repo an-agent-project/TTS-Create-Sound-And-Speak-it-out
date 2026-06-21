@@ -89,11 +89,12 @@
 
             <div class="form-group">
               <label class="form-label">音调</label>
-              <select class="form-select" v-model="settings.pitch">
-                <option value="low">低沉</option>
-                <option value="normal">正常</option>
-                <option value="high">高昂</option>
-              </select>
+              <div class="slider-container">
+                <span style="font-size:13px;color:var(--text-muted);">低</span>
+                <input type="range" class="slider" min="-50" max="50" step="5" v-model.number="settings.pitch" />
+                <span style="font-size:13px;color:var(--text-muted);">高</span>
+                <span class="slider-value">{{ formatPitch(settings.pitch) }}</span>
+              </div>
             </div>
 
             <div class="form-group">
@@ -234,6 +235,7 @@ const selectedVoice = ref(store.selectedVoice || null);
 const textContent = ref(store.textContent || "");
 const settings = ref({
   ...store.settings,
+  pitch: normalizePitch(store.settings.pitch),
 });
 const isGenerating = ref(false);
 const isPlaying = ref(false);
@@ -244,6 +246,16 @@ const generationError = ref("");
 const canGenerate = computed(() => {
   return textContent.value.trim().length > 0 && selectedVoice.value !== null && !isGenerating.value;
 });
+
+function normalizePitch(pitch) {
+  if (typeof pitch === "number") return pitch;
+  return { low: -20, normal: 0, high: 20 }[pitch] ?? 0;
+}
+
+function formatPitch(pitch) {
+  const value = Number(pitch) || 0;
+  return `${value > 0 ? "+" : ""}${value}Hz`;
+}
 
 function selectScene(scene) {
   selectedScene.value = scene;
@@ -266,7 +278,7 @@ async function generateAudio() {
     const work = await generateTts({
       content: textContent.value,
       sceneId: selectedScene.value?.id || "",
-      voiceId: selectedVoice.value.id,
+      voiceId: selectedVoice.value.providerVoiceId || selectedVoice.value.id,
       speed: settings.value.speed,
       pitch: settings.value.pitch,
       emotion: settings.value.emotion,

@@ -32,11 +32,18 @@ export function fetchScenes() {
 
 export async function fetchVoices() {
   const voices = await request("/voices");
-  return voices.map((voice) => ({
-    ...voice,
-    id: voice.voiceKey || voice.id,
-    name: voice.displayName || voice.name,
-  }));
+  return voices.map((voice) => {
+    const provider =
+      voice.providers?.find((item) => item.isActive && item.isDefault) ||
+      voice.providers?.find((item) => item.isActive);
+
+    return {
+      ...voice,
+      id: voice.voiceKey || voice.id,
+      name: voice.displayName || voice.name,
+      providerVoiceId: provider?.providerVoiceId,
+    };
+  });
 }
 
 export function preprocessText(content) {

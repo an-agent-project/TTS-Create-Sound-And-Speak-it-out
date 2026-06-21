@@ -85,7 +85,7 @@ async function ensurePreviewAudio() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text: sampleText,
-        voiceId: props.voice.id,
+        voiceId: props.voice.providerVoiceId || props.voice.id,
       }),
     });
 

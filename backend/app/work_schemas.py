@@ -9,7 +9,7 @@ class GenerateRequest(BaseModel):
     sceneId: str | None = None
     voiceId: str
     speed: float = Field(1.0, ge=0.5, le=2.0)
-    pitch: Literal["low", "normal", "high"] = "normal"
+    pitch: int = Field(0, ge=-50, le=50)
     emotion: Literal["calm", "happy", "sad", "excited"] = "calm"
     bgmType: str = "none"
     bgmVolume: int = Field(30, ge=0, le=100)
@@ -46,7 +46,7 @@ class Work(BaseModel):
     voiceId: str
     voiceName: str
     speed: float
-    pitch: str
+    pitch: int | Literal["low", "normal", "high"]
     emotion: str
     bgmType: str
     bgmVolume: int

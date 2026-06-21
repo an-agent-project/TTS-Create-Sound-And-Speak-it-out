@@ -10,7 +10,7 @@ from app.api.tts import router as tts_router
 from app.api.voices import router as voices_router
 from app.data import SCENE_BY_ID, SCENES, VOICE_BY_ID
 from app.services.text_processing import preprocess_text
-from app.services.tts import synthesize_to_file
+from app.services.tts import synthesize_segments_to_file
 from app.storage import MEDIA_DIR, delete_work, ensure_storage, get_work, list_works, save_work
 from app.work_schemas import GenerateRequest, PreprocessRequest, Work
 
@@ -69,8 +69,8 @@ async def generate_tts(payload: GenerateRequest, request: Request) -> Work:
     work_id = uuid4().hex
     output_path = MEDIA_DIR / f"{work_id}.mp3"
     try:
-        await synthesize_to_file(
-            text=processed.cleanedText,
+        duration = await synthesize_segments_to_file(
+            segments=processed.segments,
             voice=payload.voiceId,
             speed=payload.speed,
             pitch=payload.pitch,
@@ -96,7 +96,7 @@ async def generate_tts(payload: GenerateRequest, request: Request) -> Work:
         emotion=payload.emotion,
         bgmType=payload.bgmType,
         bgmVolume=payload.bgmVolume,
-        duration=max(1, round(len(processed.cleanedText) / 4)),
+        duration=duration,
         audioUrl=f"{str(request.base_url).rstrip('/')}/media/{output_path.name}",
         createdAt=datetime.now(timezone.utc).isoformat(),
         segmentCount=len(processed.segments),

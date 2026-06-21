@@ -13,7 +13,7 @@ export const useAppStore = defineStore("app", () => {
 
   const settings = ref({
     speed: 1.0,
-    pitch: "normal",
+    pitch: 0,
     emotion: "calm",
     bgmType: "none",
     bgmVolume: 30,
@@ -168,7 +168,7 @@ export const useAppStore = defineStore("app", () => {
     currentWork.value = null;
     settings.value = {
       speed: 1.0,
-      pitch: "normal",
+      pitch: 0,
       emotion: "calm",
       bgmType: "none",
       bgmVolume: 30,
