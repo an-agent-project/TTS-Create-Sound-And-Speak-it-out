@@ -1,7 +1,28 @@
+import re
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+
+EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+
+class CamelModel(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+def normalize_email(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip().lower()
+    if not value:
+        return None
+    if not EMAIL_RE.match(value):
+        raise ValueError("email format is invalid")
+    return value
+
+
+# ---------- TTS ----------
 
 class TtsPreviewRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=500)
@@ -20,54 +41,7 @@ class TtsPreviewResponse(BaseModel):
     duration: int
 
 
-# ── Auth schemas ──────────────────────────────────────────────
-
-
-class LoginRequest(BaseModel):
-    username: str = Field(..., min_length=1, max_length=50)
-    password: str = Field(..., min_length=1)
-
-
-class RegisterRequest(BaseModel):
-    username: str = Field(..., min_length=1, max_length=50)
-    password: str = Field(..., min_length=4)
-    email: str | None = Field(default=None, max_length=120)
-
-
-class UserRead(BaseModel):
-    id: int
-    username: str
-    email: str | None = None
-    phone: str | None = None
-    avatar: str | None = None
-    created_at: datetime | None = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class UserUpdate(BaseModel):
-    email: str | None = Field(default=None, max_length=120)
-    phone: str | None = Field(default=None, max_length=20)
-    avatar: str | None = None
-
-
-class ChangePasswordRequest(BaseModel):
-    old_password: str = Field(..., min_length=1)
-    new_password: str = Field(..., min_length=4)
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: UserRead
-
-
-# ── Voice schemas ──────────────────────────────────────────────
-
-
-class CamelModel(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
-
+# ---------- Voice Provider ----------
 
 class VoiceProviderProfileBase(CamelModel):
     provider: str = Field(..., min_length=1, max_length=50)
@@ -86,6 +60,8 @@ class VoiceProviderProfileRead(VoiceProviderProfileBase):
     id: int
     is_active: bool = Field(alias="isActive")
 
+
+# ---------- Voice ----------
 
 class VoiceBase(CamelModel):
     voice_key: str = Field(..., alias="voiceKey", min_length=1, max_length=100)
@@ -117,3 +93,90 @@ class VoiceRead(VoiceBase):
     is_active: bool = Field(alias="isActive")
     owner_id: int | None = Field(default=None, alias="ownerId")
     providers: list[VoiceProviderProfileRead] = Field(default_factory=list)
+
+
+# ---------- Auth ----------
+
+class SendCodeRequest(CamelModel):
+    email: str = Field(..., min_length=5, max_length=255)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email_format(cls, value: str) -> str:
+        return normalize_email(value) or ""
+
+
+class SendCodeResponse(CamelModel):
+    message: str = "verification code sent"
+    code: str = ""
+
+
+class LoginRequest(CamelModel):
+    username: str | None = Field(default=None, min_length=1, max_length=50)
+    email: str | None = Field(default=None, min_length=5, max_length=255)
+    password: str = Field(..., min_length=1, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str | None) -> str | None:
+        return normalize_email(value)
+
+    @model_validator(mode="after")
+    def require_identifier(self) -> "LoginRequest":
+        if not self.username and not self.email:
+            raise ValueError("username or email is required")
+        return self
+
+
+class RegisterRequest(CamelModel):
+    username: str = Field(..., min_length=1, max_length=50)
+    password: str = Field(..., min_length=4, max_length=128)
+    email: str | None = Field(default=None, min_length=5, max_length=255)
+    code: str | None = Field(default=None, min_length=6, max_length=6)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str | None) -> str | None:
+        return normalize_email(value)
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, value: str | None) -> str | None:
+        if value is not None and not value.isdigit():
+            raise ValueError("verification code must be 6 digits")
+        return value
+
+
+class UserRead(CamelModel):
+    id: int
+    username: str
+    email: str | None = None
+    phone: str | None = None
+    avatar: str | None = None
+    is_active: bool = True
+    created_at: datetime | None = None
+
+
+class UserUpdate(CamelModel):
+    email: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=20)
+    avatar: str | None = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str | None) -> str | None:
+        return normalize_email(value)
+
+
+class ChangePasswordRequest(CamelModel):
+    old_password: str = Field(..., alias="oldPassword", min_length=1)
+    new_password: str = Field(..., alias="newPassword", min_length=4, max_length=128)
+
+
+class TokenResponse(CamelModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserRead
+
+
+AuthResponse = TokenResponse

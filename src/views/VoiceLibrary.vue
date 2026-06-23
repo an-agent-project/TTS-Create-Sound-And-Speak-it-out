@@ -1,59 +1,41 @@
-﻿<template>
+<template>
   <div class="voice-library-page">
     <div class="page-header">
-      <h1 class="page-title"><Drama :size="28" class="title-icon" /> 音色库</h1>
-      <p class="page-subtitle">浏览全部音色，试听并收藏你喜欢的声音</p>
+      <div>
+        <h1 class="page-title"><Drama :size="28" class="title-icon" /> 个人音色库</h1>
+        <p class="page-subtitle">浏览全部音色，试听并收藏你喜欢的声音</p>
+      </div>
+      <button class="btn btn-outline manage-toggle" @click="manageMode = !manageMode">
+        <Settings2 :size="16" />
+        {{ manageMode ? "正常浏览" : "管理模式" }}
+      </button>
     </div>
 
-    <!-- Filters -->
-    <div class="filter-bar card">
+    <div class="filter-bar card" v-if="!manageMode">
       <div class="filter-group">
         <label class="filter-label">性别</label>
         <div class="filter-options">
-          <button class="filter-btn" :class="{ active: filterGender === 'all' }" @click="filterGender = 'all'">
-            全部
-          </button>
-          <button class="filter-btn" :class="{ active: filterGender === 'female' }" @click="filterGender = 'female'">
-            <User :size="14" /> 女声
-          </button>
-          <button class="filter-btn" :class="{ active: filterGender === 'male' }" @click="filterGender = 'male'">
-            <User :size="14" /> 男声
-          </button>
-          <button class="filter-btn" :class="{ active: filterGender === 'child' }" @click="filterGender = 'child'">
-            <Baby :size="14" /> 童声
-          </button>
+          <button class="filter-btn" :class="{ active: filterGender === 'all' }" @click="filterGender = 'all'">全部</button>
+          <button class="filter-btn" :class="{ active: filterGender === 'female' }" @click="filterGender = 'female'"><User :size="14" /> 女声</button>
+          <button class="filter-btn" :class="{ active: filterGender === 'male' }" @click="filterGender = 'male'"><User :size="14" /> 男声</button>
+          <button class="filter-btn" :class="{ active: filterGender === 'child' }" @click="filterGender = 'child'"><Baby :size="14" /> 童声</button>
         </div>
       </div>
       <div class="filter-group">
         <label class="filter-label">类别</label>
         <div class="filter-options">
-          <button class="filter-btn" :class="{ active: filterCategory === 'all' }" @click="filterCategory = 'all'">
-            全部
-          </button>
-          <button
-            v-for="cat in categories"
-            :key="cat"
-            class="filter-btn"
-            :class="{ active: filterCategory === cat }"
-            @click="filterCategory = cat"
-          >
-            {{ cat }}
-          </button>
+          <button class="filter-btn" :class="{ active: filterCategory === 'all' }" @click="filterCategory = 'all'">全部</button>
+          <button v-for="cat in categories" :key="cat" class="filter-btn" :class="{ active: filterCategory === cat }" @click="filterCategory = cat">{{ cat }}</button>
         </div>
       </div>
       <div class="filter-group">
-        <button
-          class="filter-btn fav-filter"
-          :class="{ active: showFavoritesOnly }"
-          @click="showFavoritesOnly = !showFavoritesOnly"
-        >
+        <button class="filter-btn fav-filter" :class="{ active: showFavoritesOnly }" @click="showFavoritesOnly = !showFavoritesOnly">
           <Star :size="14" :fill="showFavoritesOnly ? 'var(--warning)' : 'none'" :color="showFavoritesOnly ? 'var(--warning)' : undefined" />
           {{ showFavoritesOnly ? '显示全部' : '仅看收藏' }}
         </button>
       </div>
     </div>
 
-    <!-- Voice Grid -->
     <div class="section">
       <div class="grid grid-4">
         <VoiceCard
@@ -62,14 +44,16 @@
           :voice="voice"
           :is-favorite="store.isFavorite(voice.id)"
           :show-preview="true"
-          :show-select="true"
+          :show-select="!manageMode"
+          :manage-mode="manageMode"
           @toggle-favorite="store.toggleFavoriteVoice(voice.id)"
           @preview="previewVoice = voice"
           @select="goToWorkspace(voice)"
+          @delete-voice="deleteVoice(voice.id)"
+          @update-tags="(tags) => updateVoiceTags(voice.id, tags)"
         />
       </div>
 
-      <!-- Empty -->
       <div v-if="filteredVoices.length === 0" class="empty-state">
         <Search :size="56" class="empty-icon" />
         <h3>暂无匹配的音色</h3>
@@ -77,13 +61,7 @@
       </div>
     </div>
 
-    <!-- Preview Modal -->
-    <VoicePreview
-      v-if="previewVoice"
-      :voice="previewVoice"
-      @close="previewVoice = null"
-      @select="goToWorkspace(previewVoice); previewVoice = null"
-    />
+    <VoicePreview v-if="previewVoice" :voice="previewVoice" @close="previewVoice = null" @select="goToWorkspace(previewVoice); previewVoice = null" />
   </div>
 </template>
 
@@ -93,7 +71,7 @@ import { useRouter } from "vue-router";
 import { useAppStore } from "../stores/app.js";
 import VoiceCard from "../components/VoiceCard.vue";
 import VoicePreview from "../components/VoicePreview.vue";
-import { Drama, User, Baby, Star, Search } from 'lucide-vue-next'
+import { Drama, User, Baby, Star, Search, Settings2 } from 'lucide-vue-next'
 
 const router = useRouter();
 const store = useAppStore();
@@ -102,31 +80,35 @@ const filterGender = ref("all");
 const filterCategory = ref("all");
 const showFavoritesOnly = ref(false);
 const previewVoice = ref(null);
+const manageMode = ref(false);
 
 const categories = ["知识类", "播客类", "故事类", "情感类"];
 
-const allVoices = [
-  { id: "zh-CN-XiaoxiaoNeural", name: "晓晓", gender: "female", style: "温柔", category: "知识类", description: "温柔知性的女声，适合知识讲解、课程录制", isRecommended: true },
-  { id: "zh-CN-YunxiNeural", name: "云希", gender: "male", style: "磁性", category: "故事类", description: "磁性的男声，适合故事叙述、播客节目", isRecommended: true },
-  { id: "zh-CN-XiaoyiNeural", name: "晓伊", gender: "female", style: "活泼", category: "情感类", description: "活泼可爱的女声，适合轻松内容、情感表达", isRecommended: true },
-  { id: "zh-CN-YunjianNeural", name: "云健", gender: "male", style: "活力", category: "播客类", description: "充满活力的男声，适合运动、户外类内容", isRecommended: true },
-  { id: "zh-CN-YunyangNeural", name: "云扬", gender: "male", style: "阳光", category: "播客类", description: "阳光开朗的男声，适合轻松愉快的播客内容" },
-  { id: "zh-CN-YunxiaNeural", name: "云夏", gender: "male", style: "沉稳", category: "知识类", description: "沉稳专业的男声，适合纪录片、教程配音" },
-  { id: "zh-CN-liaoning-XiaobeiNeural", name: "东北小北", gender: "female", style: "方言", category: "播客类", description: "东北方言女声，适合搞笑、地域类内容" },
-  { id: "zh-CN-shaanxi-XiaoniNeural", name: "陕西小妮", gender: "female", style: "方言", category: "故事类", description: "陕西方言女声，适合方言类有声读物" },
-];
+const allVoices = ref([
+  { id: "zh-CN-XiaoxiaoNeural", name: "晓晓", gender: "female", style: "温柔", category: "知识类", description: "温柔知性的女声，适合知识讲解、课程录制", isRecommended: true, tags: ["温柔", "知识"] },
+  { id: "zh-CN-YunxiNeural", name: "云希", gender: "male", style: "磁性", category: "故事类", description: "磁性的男声，适合故事叙述、播客节目", isRecommended: true, tags: ["磁性", "故事"] },
+  { id: "zh-CN-XiaoyiNeural", name: "晓伊", gender: "female", style: "活泼", category: "情感类", description: "活泼可爱的女声，适合轻松内容、情感表达", isRecommended: true, tags: ["活泼", "情感"] },
+  { id: "zh-CN-YunjianNeural", name: "云健", gender: "male", style: "活力", category: "播客类", description: "充满活力的男声，适合运动、户外类内容", isRecommended: true, tags: ["活力", "播客"] },
+  { id: "zh-CN-YunyangNeural", name: "云扬", gender: "male", style: "阳光", category: "播客类", description: "阳光开朗的男声，适合轻松愉快的播客内容", tags: ["阳光", "播客"] },
+  { id: "zh-CN-YunxiaNeural", name: "云夏", gender: "male", style: "沉稳", category: "知识类", description: "沉稳专业的男声，适合纪录片、教程配音", tags: ["沉稳", "知识"] },
+  { id: "zh-CN-liaoning-XiaobeiNeural", name: "东北小北", gender: "female", style: "方言", category: "播客类", description: "东北方言女声，适合搞笑、地域类内容", tags: ["方言", "播客"] },
+  { id: "zh-CN-shaanxi-XiaoniNeural", name: "陕西小妮", gender: "female", style: "方言", category: "故事类", description: "陕西方言女声，适合方言类有声读物", tags: ["方言", "故事"] },
+]);
+
+function deleteVoice(id) {
+  allVoices.value = allVoices.value.filter(v => v.id !== id)
+}
+
+function updateVoiceTags(id, tags) {
+  const v = allVoices.value.find(v => v.id === id)
+  if (v) v.tags = tags
+}
 
 const filteredVoices = computed(() => {
-  let voices = allVoices;
-  if (filterGender.value !== "all") {
-    voices = voices.filter((v) => v.gender === filterGender.value);
-  }
-  if (filterCategory.value !== "all") {
-    voices = voices.filter((v) => v.category === filterCategory.value);
-  }
-  if (showFavoritesOnly.value) {
-    voices = voices.filter((v) => store.isFavorite(v.id));
-  }
+  let voices = allVoices.value;
+  if (filterGender.value !== "all") voices = voices.filter(v => v.gender === filterGender.value);
+  if (filterCategory.value !== "all") voices = voices.filter(v => v.category === filterCategory.value);
+  if (showFavoritesOnly.value) voices = voices.filter(v => store.isFavorite(v.id));
   return voices;
 });
 
@@ -137,71 +119,16 @@ function goToWorkspace(voice) {
 </script>
 
 <style scoped>
-.title-icon {
-  color: var(--primary);
-  flex-shrink: 0;
-}
-
-.empty-icon {
-  color: var(--text-muted);
-  opacity: 0.4;
-  margin-bottom: 16px;
-}
-
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  padding: 16px 20px;
-  margin-bottom: 24px;
-}
-
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.filter-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.filter-options {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.filter-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 14px;
-  border-radius: 20px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  font-size: 13px;
-  color: var(--text-secondary);
-  transition: all var(--transition);
-  white-space: nowrap;
-}
-
-.filter-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.filter-btn.active {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
-}
-
-.fav-filter {
-  border-style: dashed;
-}
+.title-icon { color: var(--primary); flex-shrink: 0; }
+.empty-icon { color: var(--text-muted); opacity: 0.4; margin-bottom: 16px; }
+.filter-bar { display: flex; flex-wrap: wrap; gap: 20px; padding: 16px 20px; margin-bottom: 24px; }
+.filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.filter-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+.filter-options { display: flex; gap: 4px; flex-wrap: wrap; }
+.filter-btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: 20px; background: var(--bg); border: 1px solid var(--border); font-size: 13px; color: var(--text-secondary); transition: all var(--transition); white-space: nowrap; }
+.filter-btn:hover { border-color: var(--primary); color: var(--primary); }
+.filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.fav-filter { border-style: dashed; }
+.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+.manage-toggle { white-space: nowrap; display: flex; align-items: center; gap: 6px; }
 </style>

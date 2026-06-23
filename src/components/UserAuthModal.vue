@@ -1,31 +1,20 @@
-﻿<template>
-  <div class="auth-overlay" @click.self="$emit('close')">
+<template>
+  <div class="auth-overlay" @click.self="emit('close')">
     <div class="auth-card animate">
-      <!-- Avatar & Close -->
       <div class="imgcontainer">
-        <span class="close-btn" @click="$emit('close')" title="关闭">&times;</span>
-        <img
-          src="https://static.runoob.com/images/mix/img_avatar.png"
-          alt="Avatar"
-          class="avatar"
-        />
+        <span class="close-btn" title="关闭" @click="emit('close')">&times;</span>
+        <img src="https://static.runoob.com/images/mix/img_avatar.png" alt="Avatar" class="avatar" />
       </div>
 
-      <!-- Login form -->
       <div v-if="!isRegister" class="container">
-        <label><b>账户名称</b></label>
-        <input
-          type="text"
-          v-model="loginForm.username"
-          placeholder="请输入账户名称"
-          required
-        />
+        <label><b>邮箱或用户名</b></label>
+        <input v-model="loginForm.identifier" type="text" placeholder="请输入邮箱或用户名" required />
 
         <label><b>密码</b></label>
         <div class="pwd-wrap">
           <input
-            :type="showPwd ? 'text' : 'password'"
             v-model="loginForm.password"
+            :type="showPwd ? 'text' : 'password'"
             placeholder="请输入密码"
             required
           />
@@ -37,29 +26,36 @@
 
         <div v-if="errorMsg" class="err-msg">{{ errorMsg }}</div>
 
-        <button class="login-btn" type="button" @click="handleLogin">登 录</button>
+        <button class="login-btn" type="button" :disabled="loggingIn" @click="handleLogin">
+          {{ loggingIn ? "登录中" : "登录" }}
+        </button>
 
         <label class="remember-me">
-          <input type="checkbox" v-model="rememberMe" />
-          记住我
+          <input v-model="rememberMe" type="checkbox" />
+          记住账号
         </label>
       </div>
 
-      <!-- Register form -->
-      <div v-if="isRegister" class="container">
-        <label><b>账户名称</b></label>
-        <input
-          type="text"
-          v-model="regForm.username"
-          placeholder="请设置账户名称"
-          required
-        />
+      <div v-else class="container">
+        <label><b>邮箱</b></label>
+        <input v-model="regForm.email" type="email" placeholder="请输入邮箱地址" required />
+
+        <label><b>验证码</b></label>
+        <div class="code-row">
+          <input v-model="regForm.code" type="text" class="code-input" placeholder="6位验证码" maxlength="6" required />
+          <button type="button" class="send-code-btn" :disabled="codeCountdown > 0" @click="sendVerificationCode">
+            {{ codeCountdown > 0 ? codeCountdown + "s" : "发送验证码" }}
+          </button>
+        </div>
+
+        <label><b>账号名称</b></label>
+        <input v-model="regForm.username" type="text" placeholder="请设置账号名称" required />
 
         <label><b>密码</b></label>
         <div class="pwd-wrap">
           <input
-            :type="showPwd ? 'text' : 'password'"
             v-model="regForm.password"
+            :type="showPwd ? 'text' : 'password'"
             placeholder="请设置密码"
             required
           />
@@ -72,34 +68,29 @@
         <label><b>确认密码</b></label>
         <div class="pwd-wrap">
           <input
-            :type="showPwd ? 'text' : 'password'"
             v-model="regForm.confirmPassword"
-            placeholder="请确认密码"
+            :type="showPwd ? 'text' : 'password'"
+            placeholder="请再次输入密码"
             required
           />
         </div>
 
-        <label><b>邮箱（选填）</b></label>
-        <input
-          type="email"
-          v-model="regForm.email"
-          placeholder="请输入邮箱地址（选填）"
-        />
-
         <div v-if="errorMsg" class="err-msg">{{ errorMsg }}</div>
+        <div v-if="successMsg" class="success-msg">{{ successMsg }}</div>
 
-        <button class="login-btn" type="button" @click="handleRegister">注 册</button>
+        <button class="login-btn" type="button" :disabled="registering" @click="handleRegister">
+          {{ registering ? "注册中" : "注册" }}
+        </button>
       </div>
 
-      <!-- Footer -->
       <div class="container footer-container">
-        <button type="button" class="cancelbtn" @click="$emit('close')">取消</button>
+        <button type="button" class="cancelbtn" @click="emit('close')">取消</button>
         <span class="footer-links">
           <template v-if="!isRegister">
-            <a href="#" @click.prevent="switchToRegister">免费注册</a>
+            <a href="#" @click.prevent="switchToRegister">注册账号</a>
           </template>
-          <template v-if="isRegister">
-            <a href="#" @click.prevent="switchToLogin">立即登录</a>
+          <template v-else>
+            <a href="#" @click.prevent="switchToLogin">返回登录</a>
           </template>
           <span class="divider">|</span>
           <a href="#" @click.prevent="forgotPassword">忘记密码?</a>
@@ -110,100 +101,163 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
-import { Eye, EyeOff } from 'lucide-vue-next'
-import { useAppStore } from '../stores/app'
+import { reactive, ref, watch } from "vue";
+import { Eye, EyeOff } from "lucide-vue-next";
+import { useAppStore } from "../stores/app";
 
-const emit = defineEmits(['close'])
-const store = useAppStore()
+const emit = defineEmits(["close"]);
+const store = useAppStore();
 
-const isRegister = ref(false)
-const errorMsg = ref('')
-const rememberMe = ref(false)
-const showPwd = ref(false)
+const isRegister = ref(false);
+const errorMsg = ref("");
+const successMsg = ref("");
+const rememberMe = ref(false);
+const showPwd = ref(false);
+const loggingIn = ref(false);
+const registering = ref(false);
+const codeCountdown = ref(0);
+let countdownTimer = null;
 
-const loginForm = reactive({
-  username: '',
-  password: ''
-})
+const loginForm = reactive({ identifier: "", password: "" });
+const regForm = reactive({ email: "", code: "", username: "", password: "", confirmPassword: "" });
 
-const regForm = reactive({
-  username: '',
-  password: '',
-  confirmPassword: '',
-  email: ''
-})
-
-// 切换表单时清除数据
 watch(isRegister, () => {
-  loginForm.username = ''
-  loginForm.password = ''
-  regForm.username = ''
-  regForm.password = ''
-  regForm.confirmPassword = ''
-  regForm.email = ''
-  showPwd.value = false
-  errorMsg.value = ''
-})
+  loginForm.identifier = "";
+  loginForm.password = "";
+  regForm.email = "";
+  regForm.code = "";
+  regForm.username = "";
+  regForm.password = "";
+  regForm.confirmPassword = "";
+  showPwd.value = false;
+  errorMsg.value = "";
+  successMsg.value = "";
+  codeCountdown.value = 0;
+  if (countdownTimer) clearInterval(countdownTimer);
+});
 
 function switchToRegister() {
-  isRegister.value = true
+  isRegister.value = true;
 }
 
 function switchToLogin() {
-  isRegister.value = false
+  isRegister.value = false;
 }
 
 function forgotPassword() {
-  alert('请联系管理员重置密码')
+  alert("请联系管理员重置密码");
+}
+
+function validateEmail(email) {
+  return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
+}
+
+async function sendVerificationCode() {
+  errorMsg.value = "";
+  successMsg.value = "";
+  const email = regForm.email.trim().toLowerCase();
+  if (!email) {
+    errorMsg.value = "请先输入邮箱地址";
+    return;
+  }
+  if (!validateEmail(email)) {
+    errorMsg.value = "邮箱格式不正确";
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/auth/send-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "发送失败");
+    successMsg.value = data.code
+      ? `验证码已发送至 ${email}，开发验证码：${data.code}`
+      : `验证码已发送至 ${email}`;
+    if (data.code) console.log("[DEV] verification code:", data.code);
+    codeCountdown.value = 60;
+    countdownTimer = setInterval(() => {
+      codeCountdown.value -= 1;
+      if (codeCountdown.value <= 0) clearInterval(countdownTimer);
+    }, 1000);
+  } catch (err) {
+    errorMsg.value = err.message || "发送失败";
+  }
 }
 
 async function handleLogin() {
-  errorMsg.value = ''
-  if (!loginForm.username.trim() || !loginForm.password.trim()) {
-    errorMsg.value = '请输入账户名称和密码'
-    return
+  errorMsg.value = "";
+  const identifier = loginForm.identifier.trim();
+  if (!identifier || !loginForm.password.trim()) {
+    errorMsg.value = "请输入账号和密码";
+    return;
   }
-  const result = await store.login(loginForm.username.trim(), loginForm.password.trim())
-  if (!result.success) {
-    errorMsg.value = result.message
-    return
+
+  loggingIn.value = true;
+  try {
+    const result = await store.login(identifier, loginForm.password);
+    if (!result.success) {
+      errorMsg.value = result.message;
+      return;
+    }
+    if (rememberMe.value) {
+      localStorage.setItem("rememberedAccount", identifier);
+    } else {
+      localStorage.removeItem("rememberedAccount");
+    }
+    emit("close");
+  } finally {
+    loggingIn.value = false;
   }
-  if (rememberMe.value) {
-    localStorage.setItem('rememberedUser', loginForm.username.trim())
-  } else {
-    localStorage.removeItem('rememberedUser')
-  }
-  emit('close')
 }
 
 async function handleRegister() {
-  errorMsg.value = ''
-  if (!regForm.username.trim() || !regForm.password.trim()) {
-    errorMsg.value = '请填写完整的注册信息'
-    return
+  errorMsg.value = "";
+  successMsg.value = "";
+  const email = regForm.email.trim().toLowerCase();
+  const username = regForm.username.trim();
+  const code = regForm.code.trim();
+
+  if (!email || !code || !username || !regForm.password.trim()) {
+    errorMsg.value = "请填写完整的注册信息";
+    return;
+  }
+  if (!validateEmail(email)) {
+    errorMsg.value = "邮箱格式不正确";
+    return;
+  }
+  if (code.length !== 6) {
+    errorMsg.value = "请输入6位验证码";
+    return;
   }
   if (regForm.password !== regForm.confirmPassword) {
-    errorMsg.value = '两次密码输入不一致'
-    return
+    errorMsg.value = "两次密码输入不一致";
+    return;
   }
   if (regForm.password.length < 4) {
-    errorMsg.value = '密码长度不能少于4位'
-    return
+    errorMsg.value = "密码长度不能少于4位";
+    return;
   }
-  const result = await store.register(regForm.username.trim(), regForm.password.trim(), regForm.email.trim())
-  if (!result.success) {
-    errorMsg.value = result.message
-    return
+
+  registering.value = true;
+  try {
+    const result = await store.register(username, regForm.password, email, code);
+    if (!result.success) {
+      errorMsg.value = result.message;
+      return;
+    }
+    emit("close");
+  } finally {
+    registering.value = false;
   }
-  emit('close')
 }
 
-// 初始化：填充记住的用户名
-const remembered = localStorage.getItem('rememberedUser')
+const remembered = localStorage.getItem("rememberedAccount") || localStorage.getItem("rememberedEmail");
 if (remembered) {
-  loginForm.username = remembered
-  rememberMe.value = true
+  loginForm.identifier = remembered;
+  rememberMe.value = true;
 }
 </script>
 
@@ -231,7 +285,6 @@ if (remembered) {
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);
 }
 
-/* 头像容器 */
 .imgcontainer {
   text-align: center;
   margin: 24px 0 12px 0;
@@ -246,7 +299,6 @@ if (remembered) {
   border: 3px solid #eef2ff;
 }
 
-/* 关闭按钮 */
 .close-btn {
   position: absolute;
   right: 25px;
@@ -264,7 +316,6 @@ if (remembered) {
   color: #ef4444;
 }
 
-/* 表单容器 */
 .container {
   padding: 16px 28px;
 }
@@ -299,28 +350,12 @@ if (remembered) {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
-/* Password wrapper */
 .pwd-wrap {
   position: relative;
 }
 
 .pwd-wrap input {
-  width: 100%;
-  padding: 12px 40px 12px 16px;
-  margin: 8px 0;
-  display: inline-block;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 14px;
-  color: #333;
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 0.2s;
-}
-
-.pwd-wrap input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  padding-right: 40px;
 }
 
 .pwd-wrap .toggle-pwd {
@@ -343,7 +378,41 @@ if (remembered) {
   color: #bbb;
 }
 
-/* 记住我 */
+.code-row {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.code-input {
+  flex: 1;
+  margin: 0 !important;
+}
+
+.send-code-btn {
+  flex-shrink: 0;
+  min-width: 100px;
+  padding: 8px 10px;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.send-code-btn:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.send-code-btn:disabled {
+  background: #a5b4fc;
+  cursor: not-allowed;
+}
+
 .remember-me {
   display: flex !important;
   align-items: center;
@@ -361,7 +430,6 @@ if (remembered) {
   accent-color: #6366f1;
 }
 
-/* 错误信息 */
 .err-msg {
   background: #fff2f0;
   border: 1px solid #ffccc7;
@@ -372,7 +440,16 @@ if (remembered) {
   margin-top: 8px;
 }
 
-/* 登录/注册按钮 */
+.success-msg {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
 .login-btn {
   width: 100%;
   padding: 12px;
@@ -384,16 +461,19 @@ if (remembered) {
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  letter-spacing: 6px;
   transition: background 0.2s;
 }
 
-.login-btn:hover {
+.login-btn:hover:not(:disabled) {
   background: #4f46e5;
   opacity: 0.9;
 }
 
-/* 底部区域 */
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .footer-container {
   background-color: #f1f1f1;
   border-radius: 0 0 12px 12px;
@@ -442,7 +522,6 @@ if (remembered) {
   color: #ccc;
 }
 
-/* 响应式 */
 @media screen and (max-width: 480px) {
   .auth-card {
     width: 95vw;
@@ -455,59 +534,20 @@ if (remembered) {
   .footer-container {
     flex-direction: column;
     text-align: center;
+    padding: 14px 20px;
   }
 
   .container {
     padding: 12px 20px;
   }
-
-  .footer-container {
-    padding: 14px 20px;
-  }
 }
 
-@media screen and (max-width: 300px) {
-  .footer-links {
-    display: block;
-    width: 100%;
-  }
-
-  .divider {
-    display: none;
-  }
-
-  .footer-links a {
-    display: block;
-    margin-top: 4px;
-  }
-
-  .cancelbtn {
-    width: 100%;
-  }
-
-  .imgcontainer {
-    margin: 12px 0 6px 0;
-  }
-
-  .avatar {
-    width: 70px;
-    height: 70px;
-  }
-}
-
-/* 动画 */
 .animate {
-  -webkit-animation: animatezoom 0.5s;
   animation: animatezoom 0.35s;
-}
-
-@-webkit-keyframes animatezoom {
-  from { -webkit-transform: scale(0); }
-  to   { -webkit-transform: scale(1); }
 }
 
 @keyframes animatezoom {
   from { transform: scale(0); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
+  to { transform: scale(1); opacity: 1; }
 }
 </style>

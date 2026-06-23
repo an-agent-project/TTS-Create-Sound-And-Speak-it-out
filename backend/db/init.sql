@@ -3,19 +3,21 @@ CREATE DATABASE IF NOT EXISTS tts_podcast
   DEFAULT COLLATE utf8mb4_unicode_ci;
 
 USE tts_podcast;
+SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS users (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   username VARCHAR(50) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  email VARCHAR(120) NULL,
+  email VARCHAR(255) NULL,
   phone VARCHAR(20) NULL,
   avatar TEXT NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uk_user_username (username)
+  UNIQUE KEY uk_user_username (username),
+  UNIQUE KEY uk_user_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS voices (
@@ -24,7 +26,7 @@ CREATE TABLE IF NOT EXISTS voices (
   display_name VARCHAR(50) NOT NULL,
   gender VARCHAR(20) NOT NULL,
   style VARCHAR(50) NULL,
-  category VARCHAR(50) NULL,
+  category VARCHAR(100) NULL,
   description VARCHAR(255) NULL,
   is_recommended BOOLEAN NOT NULL DEFAULT FALSE,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,

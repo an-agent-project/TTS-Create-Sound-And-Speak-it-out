@@ -18,10 +18,21 @@ const routes = [
     component: () => import("../views/Workspace.vue"),
   },
   {
+    path: "/extract",
+    name: "Extraction",
+    component: () => import("../views/ExtractionPage.vue"),
+  },
+  {
     path: "/voices",
     name: "VoiceLibrary",
     component: () => import("../views/VoiceLibrary.vue"),
   },
+  {
+    path: "/workshop",
+    name: "Workshop",
+    component: () => import("../views/WorkshopPage.vue"),
+  },
+
   {
     path: "/my-works",
     name: "MyWorks",

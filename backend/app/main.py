@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,12 +7,17 @@ from fastapi.staticfiles import StaticFiles
 from app.api.auth import router as auth_router
 from app.api.tts import router as tts_router
 from app.api.voices import router as voices_router
+from app.database import engine
+from app.models import Base
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 STATIC_DIR = BASE_DIR / "static"
 PREVIEW_DIR = STATIC_DIR / "previews"
 PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+
+# 启动时自动创建表
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="TTS Podcast API")
 
