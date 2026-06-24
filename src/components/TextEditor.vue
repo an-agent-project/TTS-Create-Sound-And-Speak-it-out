@@ -16,7 +16,7 @@
           style="display:none"
           @change="handleFileUpload"
         />
-        <button class="btn btn-secondary btn-sm" @click="$emit('clear')" :disabled="!modelValue">清空</button>
+        <button class="btn btn-secondary btn-sm" type="button" @click="clearText" :disabled="!modelValue">清空</button>
       </div>
     </div>
     <textarea
@@ -51,6 +51,11 @@ const estimatedDuration = computed(() => Math.ceil(props.modelValue.length / 300
 
 function triggerFileInput() {
   fileInput.value?.click();
+}
+
+function clearText() {
+  emit("update:modelValue", "");
+  emit("clear");
 }
 
 function handleFileUpload(e) {

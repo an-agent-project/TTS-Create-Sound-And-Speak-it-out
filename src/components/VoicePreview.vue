@@ -22,7 +22,6 @@
         </div>
         <p class="preview-desc">{{ voice.description }}</p>
         <div class="preview-sample">
-        <div class="preview-sample">
           <div class="sample-title">📝 试听文本</div>
           <p class="sample-text">"{{ sampleText }}"</p>
         </div>
@@ -32,6 +31,7 @@
           :duration="duration"
           :volume="volume"
           :audio-url="audioUrl"
+          :managed-externally="true"
           @toggle-play="togglePreview"
           @seek="seekPreview"
           @volume-change="setVolume"
@@ -47,7 +47,6 @@
         </div>
       </div>
     </div>
-  </div>
   </div>
 </template>
 
@@ -86,7 +85,7 @@ async function ensurePreviewAudio() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text: sampleText,
-        voiceId: props.voice.id,
+        voiceId: props.voice.providerVoiceId || props.voice.id,
       }),
     });
 
@@ -145,11 +144,11 @@ async function togglePreview() {
   }
 }
 
-function seekPreview(ratio) {
+function seekPreview(nextTime) {
   if (!audio || !duration.value) return;
-  const nextTime = Math.max(0, Math.min(1, ratio)) * duration.value;
-  audio.currentTime = nextTime;
-  currentTime.value = nextTime;
+  const clampedTime = Math.max(0, Math.min(duration.value, nextTime));
+  audio.currentTime = clampedTime;
+  currentTime.value = clampedTime;
 }
 
 function setVolume(nextVolume) {

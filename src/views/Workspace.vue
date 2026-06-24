@@ -89,11 +89,12 @@
 
             <div class="form-group">
               <label class="form-label">音调</label>
-              <select class="form-select" v-model="settings.pitch">
-                <option value="low">低沉</option>
-                <option value="normal">正常</option>
-                <option value="high">高昂</option>
-              </select>
+              <div class="slider-container">
+                <span style="font-size:13px;color:var(--text-muted);">低</span>
+                <input type="range" class="slider" min="-50" max="50" step="5" v-model.number="settings.pitch" />
+                <span style="font-size:13px;color:var(--text-muted);">高</span>
+                <span class="slider-value">{{ formatPitch(settings.pitch) }}</span>
+              </div>
             </div>
 
             <div class="form-group">
@@ -143,6 +144,9 @@
           <Loader v-else :size="20" class="spin" />
           {{ isGenerating ? '正在生成...' : '一键生成配音' }}
         </button>
+        <div v-if="generationError" class="error-card">
+          {{ generationError }}
+        </div>
 
         <!-- Generated Result -->
         <div v-if="generatedWork" class="section preview-section">
@@ -164,7 +168,7 @@
               :current-time="0"
               :duration="generatedWork.duration || 0"
               :volume="80"
-              audio-url="#"
+              :audio-url="generatedWork.audioUrl"
               @toggle-play="isPlaying = !isPlaying"
             />
             <div class="preview-actions">
@@ -189,6 +193,7 @@
 <script setup>
 import { ref, computed } from "vue";
 import { useAppStore } from "../stores/app.js";
+import { generateTts } from "../services/api.js";
 import SceneCard from "../components/SceneCard.vue";
 import TextEditor from "../components/TextEditor.vue";
 import AudioPlayer from "../components/AudioPlayer.vue";
@@ -225,24 +230,32 @@ const emotions = [
   { value: "excited", lucideIcon: Zap, label: "激动" },
 ];
 
-const selectedScene = ref(null);
-const selectedVoice = ref(null);
-const textContent = ref("");
+const selectedScene = ref(store.selectedScene || null);
+const selectedVoice = ref(store.selectedVoice || null);
+const textContent = ref(store.textContent || "");
 const settings = ref({
-  speed: 1.0,
-  pitch: "normal",
-  emotion: "calm",
-  bgmType: "none",
-  bgmVolume: 30,
+  ...store.settings,
+  pitch: normalizePitch(store.settings.pitch),
 });
 const isGenerating = ref(false);
 const isPlaying = ref(false);
 const generatedWork = ref(null);
 const previewVoice = ref(null);
+const generationError = ref("");
 
 const canGenerate = computed(() => {
   return textContent.value.trim().length > 0 && selectedVoice.value !== null && !isGenerating.value;
 });
+
+function normalizePitch(pitch) {
+  if (typeof pitch === "number") return pitch;
+  return { low: -20, normal: 0, high: 20 }[pitch] ?? 0;
+}
+
+function formatPitch(pitch) {
+  const value = Number(pitch) || 0;
+  return `${value > 0 ? "+" : ""}${value}Hz`;
+}
 
 function selectScene(scene) {
   selectedScene.value = scene;
@@ -259,36 +272,37 @@ function selectVoiceFromPreview() {
 async function generateAudio() {
   if (!canGenerate.value) return;
   isGenerating.value = true;
+  generationError.value = "";
 
-  await new Promise((r) => setTimeout(r, 1500));
-
-  generatedWork.value = {
-    title: selectedScene.value
-      ? `【${selectedScene.value.name}】${textContent.value.slice(0, 20)}...`
-      : textContent.value.slice(0, 30) + "...",
-    content: textContent.value,
-    sceneId: selectedScene.value?.id || "",
-    sceneName: selectedScene.value?.name || "通用",
-    voiceId: selectedVoice.value.id,
-    voiceName: selectedVoice.value.name,
-    speed: settings.value.speed,
-    pitch: settings.value.pitch,
-    emotion: settings.value.emotion,
-    bgmType: settings.value.bgmType,
-    bgmVolume: settings.value.bgmVolume,
-    duration: Math.ceil(textContent.value.length / 4),
-  };
-
-  isGenerating.value = false;
+  try {
+    const work = await generateTts({
+      content: textContent.value,
+      sceneId: selectedScene.value?.id || "",
+      voiceId: selectedVoice.value.providerVoiceId || selectedVoice.value.id,
+      speed: settings.value.speed,
+      pitch: settings.value.pitch,
+      emotion: settings.value.emotion,
+      bgmType: settings.value.bgmType,
+      bgmVolume: settings.value.bgmVolume,
+    });
+    generatedWork.value = work;
+    store.addWork(work);
+  } catch (error) {
+    generationError.value = error.message || "配音生成失败，请稍后重试。";
+  } finally {
+    isGenerating.value = false;
+  }
 }
 
 function regenerate() {
   generatedWork.value = null;
+  generationError.value = "";
 }
 
-function saveWork() {
+async function saveWork() {
   if (generatedWork.value) {
     store.addWork(generatedWork.value);
+    await store.fetchWorks();
     alert("✅ 作品已保存！可在「我的作品」中查看。");
   }
 }
@@ -297,6 +311,16 @@ function saveWork() {
 <style scoped>
 .workspace-page {
   padding-bottom: 40px;
+}
+
+.error-card {
+  margin: -8px 0 18px;
+  padding: 12px 14px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 14px;
 }
 
 .section-icon {
@@ -432,4 +456,3 @@ function saveWork() {
   flex-wrap: wrap;
 }
 </style>
-

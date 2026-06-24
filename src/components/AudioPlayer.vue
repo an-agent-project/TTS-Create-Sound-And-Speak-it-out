@@ -4,8 +4,8 @@
       <button class="player-btn" @click="$emit('prev')" title="上一个">
         <SkipBack :size="20" />
       </button>
-      <button class="player-btn play-btn" @click="$emit('toggle-play')" title="播放/暂停">
-        <Pause v-if="isPlaying" :size="24" />
+      <button class="player-btn play-btn" @click="togglePlay" title="播放/暂停">
+        <Pause v-if="playing" :size="24" />
         <Play v-else :size="24" />
       </button>
       <button class="player-btn" @click="$emit('next')" title="下一个">
@@ -13,11 +13,11 @@
       </button>
     </div>
     <div class="player-progress">
-      <span class="player-time">{{ formatTime(currentTime) }}</span>
+      <span class="player-time">{{ formatTime(displayCurrentTime) }}</span>
       <div class="progress-bar" @click="onSeek">
         <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
       </div>
-      <span class="player-time">{{ formatTime(duration) }}</span>
+      <span class="player-time">{{ formatTime(displayDuration) }}</span>
     </div>
     <div class="player-extra">
       <div class="volume-control">
@@ -27,8 +27,8 @@
           class="slider"
           min="0"
           max="100"
-          :value="volume"
-          @input="$emit('volumeChange', $event.target.value)"
+          :value="currentVolume"
+          @input="onVolumeChange"
         />
       </div>
       <a v-if="audioUrl" :href="audioUrl" download class="btn btn-secondary btn-sm">
@@ -39,7 +39,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { SkipBack, SkipForward, Play, Pause, Volume2, Download } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -48,6 +48,7 @@ const props = defineProps({
   duration: { type: Number, default: 0 },
   volume: { type: Number, default: 80 },
   audioUrl: { type: String, default: "" },
+  managedExternally: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([
@@ -58,6 +59,29 @@ const emit = defineEmits([
   "volumeChange",
 ]);
 
+const audio = ref(null);
+const playing = ref(false);
+const internalCurrentTime = ref(0);
+const internalDuration = ref(0);
+const currentVolume = ref(props.volume);
+
+watch(
+  () => props.audioUrl,
+  (url) => {
+    cleanupAudio();
+    internalCurrentTime.value = 0;
+    internalDuration.value = props.duration || 0;
+    if (props.managedExternally || !url || url === "#") return;
+
+    audio.value = new Audio(url);
+    audio.value.volume = currentVolume.value / 100;
+    audio.value.addEventListener("timeupdate", updateProgress);
+    audio.value.addEventListener("loadedmetadata", updateDuration);
+    audio.value.addEventListener("ended", stopPlaying);
+  },
+  { immediate: true },
+);
+
 function formatTime(seconds) {
   if (!seconds || isNaN(seconds) || seconds < 0) return "0:00";
   const m = Math.floor(seconds / 60);
@@ -66,15 +90,70 @@ function formatTime(seconds) {
 }
 
 const progressPercent = computed(() => {
-  if (!props.duration || props.duration === 0) return 0;
-  return Math.min((props.currentTime / props.duration) * 100, 100);
+  if (!displayDuration.value) return 0;
+  return Math.min((displayCurrentTime.value / displayDuration.value) * 100, 100);
 });
 
-function onSeek(e) {
-  const rect = e.currentTarget.getBoundingClientRect();
-  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-  emit("seek", ratio * props.duration);
+const displayCurrentTime = computed(() =>
+  audio.value && !props.managedExternally ? internalCurrentTime.value : props.currentTime,
+);
+
+const displayDuration = computed(() =>
+  audio.value && !props.managedExternally ? internalDuration.value : props.duration,
+);
+
+async function togglePlay() {
+  emit("toggle-play");
+  if (props.managedExternally) return;
+  if (!audio.value) return;
+  if (playing.value) {
+    audio.value.pause();
+    playing.value = false;
+    return;
+  }
+  await audio.value.play();
+  playing.value = true;
 }
+
+function onSeek(event) {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+  const targetTime = ratio * displayDuration.value;
+  if (audio.value && !props.managedExternally) audio.value.currentTime = targetTime;
+  emit("seek", targetTime);
+}
+
+function onVolumeChange(event) {
+  const volume = Number(event.target.value);
+  currentVolume.value = volume;
+  if (audio.value && !props.managedExternally) audio.value.volume = volume / 100;
+  emit("volumeChange", volume);
+}
+
+function updateProgress() {
+  internalCurrentTime.value = audio.value?.currentTime || 0;
+}
+
+function updateDuration() {
+  internalDuration.value = audio.value?.duration || props.duration || 0;
+}
+
+function stopPlaying() {
+  playing.value = false;
+  internalCurrentTime.value = 0;
+}
+
+function cleanupAudio() {
+  if (!audio.value) return;
+  audio.value.pause();
+  audio.value.removeEventListener("timeupdate", updateProgress);
+  audio.value.removeEventListener("loadedmetadata", updateDuration);
+  audio.value.removeEventListener("ended", stopPlaying);
+  audio.value = null;
+  playing.value = false;
+}
+
+onBeforeUnmount(cleanupAudio);
 </script>
 
 <style scoped>

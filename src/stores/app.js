@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { deleteWorkById, fetchWorks as fetchWorksApi } from "../services/api.js";
 
 const AUTH_TOKEN_KEY = "auth_token";
 
@@ -14,7 +15,7 @@ export const useAppStore = defineStore("app", () => {
 
   const settings = ref({
     speed: 1.0,
-    pitch: "normal",
+    pitch: 0,
     emotion: "calm",
     bgmType: "none",
     bgmVolume: 30,
@@ -158,6 +159,14 @@ export const useAppStore = defineStore("app", () => {
     }
   }
 
+  function updatePhone(phone) {
+    return updateMe({ phone });
+  }
+
+  function updateAvatar(avatar) {
+    return updateMe({ avatar });
+  }
+
   async function changePassword(oldPassword, newPassword) {
     const resp = await fetch("/api/auth/change-password", {
       method: "POST",
@@ -177,17 +186,19 @@ export const useAppStore = defineStore("app", () => {
     fetchMe();
   }
 
-  function addWork(work) {
-    works.value.unshift({
-      id: Date.now().toString(),
-      ...work,
-      status: "completed",
-      createdAt: new Date().toISOString(),
-      duration: Math.ceil(work.content.length / 5),
-    });
+  async function fetchWorks() {
+    works.value = await fetchWorksApi();
   }
 
-  function deleteWork(id) {
+  function addWork(work) {
+    const existed = works.value.some((item) => item.id === work.id);
+    if (!existed) {
+      works.value.unshift(work);
+    }
+  }
+
+  async function deleteWork(id) {
+    await deleteWorkById(id);
     works.value = works.value.filter((w) => w.id !== id);
   }
 
@@ -211,7 +222,7 @@ export const useAppStore = defineStore("app", () => {
     currentWork.value = null;
     settings.value = {
       speed: 1.0,
-      pitch: "normal",
+      pitch: 0,
       emotion: "calm",
       bgmType: "none",
       bgmVolume: 30,
@@ -236,7 +247,10 @@ export const useAppStore = defineStore("app", () => {
     logout,
     fetchMe,
     updateMe,
+    updatePhone,
+    updateAvatar,
     changePassword,
+    fetchWorks,
     addWork,
     deleteWork,
     toggleFavoriteVoice,

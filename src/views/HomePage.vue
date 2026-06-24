@@ -427,4 +427,3 @@ function goToWorkspace(sceneId) {
   }
 }
 </style>
-

@@ -1,0 +1,56 @@
+import json
+from pathlib import Path
+
+from app.work_schemas import Work
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / "data"
+MEDIA_DIR = BASE_DIR / "media"
+WORKS_FILE = DATA_DIR / "works.json"
+
+
+def ensure_storage() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+    if not WORKS_FILE.exists():
+        WORKS_FILE.write_text("[]\n", encoding="utf-8")
+
+
+def list_works() -> list[Work]:
+    ensure_storage()
+    raw = json.loads(WORKS_FILE.read_text(encoding="utf-8"))
+    return [Work(**item) for item in raw]
+
+
+def save_work(work: Work) -> Work:
+    works = list_works()
+    works.insert(0, work)
+    _write_works(works)
+    return work
+
+
+def get_work(work_id: str) -> Work | None:
+    for work in list_works():
+        if work.id == work_id:
+            return work
+    return None
+
+
+def delete_work(work_id: str) -> bool:
+    works = list_works()
+    next_works = [work for work in works if work.id != work_id]
+    if len(next_works) == len(works):
+        return False
+
+    _write_works(next_works)
+    media_path = MEDIA_DIR / f"{work_id}.mp3"
+    if media_path.exists():
+        media_path.unlink()
+    return True
+
+
+def _write_works(works: list[Work]) -> None:
+    WORKS_FILE.write_text(
+        json.dumps([work.model_dump() for work in works], ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
