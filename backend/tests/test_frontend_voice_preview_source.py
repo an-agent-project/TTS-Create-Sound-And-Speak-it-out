@@ -19,6 +19,57 @@ def test_voice_preview_calls_tts_preview_api_and_plays_audio():
     assert ":audio-url=\"audioUrl\"" in source
 
 
+
+def test_voice_preview_shows_generation_progress_and_resets_audio_state():
+    source = VOICE_PREVIEW_PATH.read_text(encoding="utf-8")
+
+    assert "previewProgress" in source
+    assert "startPreviewProgress" in source
+    assert "finishPreviewProgress" in source
+    assert "resetAudioState" in source
+    assert "audio.removeEventListener" in source
+    assert "audio = null" in source
+
+
+def test_workspace_shows_generation_progress_while_waiting_for_tts():
+    source = WORKSPACE_PATH.read_text(encoding="utf-8")
+
+    assert "generationProgress" in source
+    assert "generationStage" in source
+    assert "startGenerationProgress" in source
+    assert "finishGenerationProgress" in source
+    assert "resetGenerationProgress" in source
+
+def test_workspace_uses_tts_job_polling_for_generation():
+    api_source = API_PATH.read_text(encoding="utf-8")
+    workspace_source = WORKSPACE_PATH.read_text(encoding="utf-8")
+
+    assert "createTtsJob" in api_source
+    assert "fetchTtsJob" in api_source
+    assert "createTtsJob" in workspace_source
+    assert "fetchTtsJob" in workspace_source
+    assert "pollGenerationJob" in workspace_source
+    assert "/tts/jobs" in api_source
+
+VOICE_LIBRARY_PATH = ROOT_DIR / "src" / "views" / "VoiceLibrary.vue"
+ENSURE_QWEN_MODEL_SCRIPT = ROOT_DIR / "backend" / "scripts" / "ensure_qwen_model.py"
+
+
+def test_voice_library_does_not_expose_qwen_one_click_import():
+    source = VOICE_LIBRARY_PATH.read_text(encoding="utf-8")
+    api_source = API_PATH.read_text(encoding="utf-8")
+
+    assert "importQwenPresetVoice" not in source
+    assert "importPresetQwenVoice" not in source
+    assert "qwen-presets/0-6b-customvoice/import" not in api_source
+
+
+def test_qwen_model_initializer_script_exists():
+    source = ENSURE_QWEN_MODEL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "snapshot_download" in source
+    assert "seed_system_qwen_vivian" in source
+    assert "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice" in source
 def test_voice_api_maps_active_provider_voice_id():
     source = API_PATH.read_text(encoding="utf-8")
 

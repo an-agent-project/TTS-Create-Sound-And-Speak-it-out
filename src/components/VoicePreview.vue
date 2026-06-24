@@ -2,8 +2,8 @@
   <div class="voice-preview-overlay" @click.self="closePreview">
     <div class="voice-preview-modal">
       <div class="modal-header">
-        <h3>🎙️ 音色试听</h3>
-        <button class="close-btn" @click="closePreview">✕</button>
+        <h3>音色试听</h3>
+        <button class="close-btn" @click="closePreview">×</button>
       </div>
       <div class="modal-body">
         <div class="preview-voice-info">
@@ -22,7 +22,7 @@
         </div>
         <p class="preview-desc">{{ voice.description }}</p>
         <div class="preview-sample">
-          <div class="sample-title">📝 试听文本</div>
+          <div class="sample-title">试听文本</div>
           <p class="sample-text">"{{ sampleText }}"</p>
         </div>
         <AudioPlayer
@@ -36,14 +36,21 @@
           @seek="seekPreview"
           @volume-change="setVolume"
         />
+        <div v-if="isLoading || previewProgress > 0" class="generation-progress preview-generation-progress">
+          <div class="progress-row">
+            <span>{{ previewStage }}</span>
+            <strong>{{ previewProgress }}%</strong>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" :style="{ width: previewProgress + '%' }"></div>
+          </div>
+        </div>
         <p v-if="isLoading" class="preview-status">正在生成试听音频...</p>
         <p v-if="errorMessage" class="preview-error">{{ errorMessage }}</p>
 
         <div class="modal-actions">
           <button class="btn btn-secondary" @click="closePreview">关闭</button>
-          <button class="btn btn-primary" @click="selectVoice">
-            ✅ 选择此音色
-          </button>
+          <button class="btn btn-primary" @click="selectVoice">选择此音色</button>
         </div>
       </div>
     </div>
@@ -53,7 +60,7 @@
 <script setup>
 import { onBeforeUnmount, ref, watch } from "vue";
 import AudioPlayer from "./AudioPlayer.vue";
-import { User, Baby, X, Check } from 'lucide-vue-next'
+import { User, Baby } from "lucide-vue-next";
 
 const props = defineProps({
   voice: { type: Object, required: true },
@@ -63,26 +70,74 @@ const emit = defineEmits(["close", "select"]);
 
 const isPlaying = ref(false);
 const isLoading = ref(false);
+const previewProgress = ref(0);
+const previewStage = ref("等待生成");
 const currentTime = ref(0);
 const duration = ref(15);
 const volume = ref(80);
 const audioUrl = ref("");
 const errorMessage = ref("");
 let audio = null;
+let previewProgressTimer = null;
 
 const sampleText =
   "大家好，欢迎收听本期节目。今天我们要一起探索一个非常有趣的话题。让我们开始吧！";
+
+function clearPreviewProgressTimer() {
+  if (!previewProgressTimer) return;
+  window.clearInterval(previewProgressTimer);
+  previewProgressTimer = null;
+}
+
+function startPreviewProgress() {
+  clearPreviewProgressTimer();
+  previewProgress.value = 8;
+  previewStage.value = "准备试听任务";
+  previewProgressTimer = window.setInterval(() => {
+    if (previewProgress.value < 35) {
+      previewStage.value = "加载音色模型";
+      previewProgress.value += 3;
+    } else if (previewProgress.value < 72) {
+      previewStage.value = "合成试听音频";
+      previewProgress.value += 2;
+    } else if (previewProgress.value < 92) {
+      previewStage.value = "写入音频文件";
+      previewProgress.value += 1;
+    }
+  }, 700);
+}
+
+function finishPreviewProgress() {
+  clearPreviewProgressTimer();
+  previewStage.value = "试听音频已就绪";
+  previewProgress.value = 100;
+  window.setTimeout(() => {
+    if (!isLoading.value) previewProgress.value = 0;
+  }, 700);
+}
+
+function resetPreviewProgress() {
+  clearPreviewProgressTimer();
+  previewProgress.value = 0;
+  previewStage.value = "等待生成";
+}
 
 async function ensurePreviewAudio() {
   if (audioUrl.value) return;
 
   isLoading.value = true;
   errorMessage.value = "";
+  startPreviewProgress();
 
   try {
     const response = await fetch("/api/tts/preview", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(localStorage.getItem("auth_token")
+          ? { Authorization: `Bearer ${localStorage.getItem("auth_token")}` }
+          : {}),
+      },
       body: JSON.stringify({
         text: sampleText,
         voiceId: props.voice.providerVoiceId || props.voice.id,
@@ -96,27 +151,35 @@ async function ensurePreviewAudio() {
     const data = await response.json();
     audioUrl.value = data.audioUrl;
     duration.value = data.duration || duration.value;
+    finishPreviewProgress();
   } catch (error) {
     errorMessage.value = error.message || "试听音频生成失败";
+    resetPreviewProgress();
     throw error;
   } finally {
     isLoading.value = false;
   }
 }
 
+function onAudioTimeUpdate() {
+  currentTime.value = audio?.currentTime || 0;
+}
+
+function onAudioLoadedMetadata() {
+  if (audio && Number.isFinite(audio.duration)) {
+    duration.value = audio.duration;
+  }
+}
+
+function onAudioEnded() {
+  isPlaying.value = false;
+  currentTime.value = 0;
+}
+
 function bindAudioEvents() {
-  audio.addEventListener("timeupdate", () => {
-    currentTime.value = audio.currentTime || 0;
-  });
-  audio.addEventListener("loadedmetadata", () => {
-    if (Number.isFinite(audio.duration)) {
-      duration.value = audio.duration;
-    }
-  });
-  audio.addEventListener("ended", () => {
-    isPlaying.value = false;
-    currentTime.value = 0;
-  });
+  audio.addEventListener("timeupdate", onAudioTimeUpdate);
+  audio.addEventListener("loadedmetadata", onAudioLoadedMetadata);
+  audio.addEventListener("ended", onAudioEnded);
 }
 
 async function togglePreview() {
@@ -158,21 +221,32 @@ function setVolume(nextVolume) {
   }
 }
 
-function stopPreview() {
-  if (!audio) return;
-  audio.pause();
-  audio.currentTime = 0;
+function resetAudioState({ clearUrl = false } = {}) {
+  if (audio) {
+    audio.pause();
+    audio.removeEventListener("timeupdate", onAudioTimeUpdate);
+    audio.removeEventListener("loadedmetadata", onAudioLoadedMetadata);
+    audio.removeEventListener("ended", onAudioEnded);
+    audio = null;
+  }
   isPlaying.value = false;
   currentTime.value = 0;
+  if (clearUrl) audioUrl.value = "";
+}
+
+function stopPreview() {
+  resetAudioState();
 }
 
 function closePreview() {
   stopPreview();
+  resetPreviewProgress();
   emit("close");
 }
 
 function selectVoice() {
   stopPreview();
+  resetPreviewProgress();
   emit("select");
   emit("close");
 }
@@ -180,16 +254,16 @@ function selectVoice() {
 watch(
   () => props.voice.id,
   () => {
-    stopPreview();
-    audio = null;
-    audioUrl.value = "";
+    resetAudioState({ clearUrl: true });
     errorMessage.value = "";
     duration.value = 15;
+    resetPreviewProgress();
   }
 );
 
 onBeforeUnmount(() => {
-  stopPreview();
+  resetAudioState();
+  resetPreviewProgress();
 });
 </script>
 
@@ -304,6 +378,43 @@ onBeforeUnmount(() => {
   font-size: 15px;
   line-height: 1.7;
   color: var(--text);
+}
+
+.generation-progress {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.progress-row strong {
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  transition: width 0.25s ease;
 }
 
 .preview-status,

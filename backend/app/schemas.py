@@ -46,6 +46,9 @@ class TtsPreviewResponse(BaseModel):
 class VoiceProviderProfileBase(CamelModel):
     provider: str = Field(..., min_length=1, max_length=50)
     provider_voice_id: str = Field(..., alias="providerVoiceId", min_length=1, max_length=120)
+    provider_kind: str = Field(default="external_tts", alias="providerKind", min_length=1, max_length=50)
+    model_artifact_id: int | None = Field(default=None, alias="modelArtifactId")
+    runtime_config_json: str | None = Field(default=None, alias="runtimeConfigJson")
     locale: str | None = Field(default=None, max_length=20)
     supports_wav: bool = Field(default=False, alias="supportsWav")
     supports_mp3: bool = Field(default=True, alias="supportsMp3")
@@ -180,3 +183,148 @@ class TokenResponse(CamelModel):
 
 
 AuthResponse = TokenResponse
+
+
+# ---------- Material Library ----------
+
+class UserMaterialItemBase(CamelModel):
+    filename: str = Field(..., min_length=1, max_length=255)
+    media_type: str = Field(default="audio", alias="mediaType", min_length=1, max_length=50)
+    storage_path: str = Field(..., alias="storagePath", min_length=1, max_length=500)
+    transcript: str | None = None
+    duration_seconds: float | None = Field(default=None, alias="durationSeconds")
+    file_size_bytes: int | None = Field(default=None, alias="fileSizeBytes")
+    status: str = Field(default="ready", min_length=1, max_length=30)
+
+
+class UserMaterialItemCreate(UserMaterialItemBase):
+    pass
+
+
+class UserMaterialItemUpdate(CamelModel):
+    filename: str | None = Field(default=None, min_length=1, max_length=255)
+    media_type: str | None = Field(default=None, alias="mediaType", min_length=1, max_length=50)
+    storage_path: str | None = Field(default=None, alias="storagePath", min_length=1, max_length=500)
+    transcript: str | None = None
+    duration_seconds: float | None = Field(default=None, alias="durationSeconds")
+    file_size_bytes: int | None = Field(default=None, alias="fileSizeBytes")
+    status: str | None = Field(default=None, min_length=1, max_length=30)
+
+
+class UserMaterialItemRead(UserMaterialItemBase):
+    id: int
+    asset_id: int = Field(alias="assetId")
+    created_at: datetime | None = Field(default=None, alias="createdAt")
+
+
+class UserMaterialAssetBase(CamelModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    asset_type: str = Field(default="audio_dataset", alias="assetType", min_length=1, max_length=50)
+    source_format: str = Field(default="audio", alias="sourceFormat", min_length=1, max_length=20)
+    original_filename: str | None = Field(default=None, alias="originalFilename", max_length=255)
+    storage_path: str | None = Field(default=None, alias="storagePath", max_length=500)
+    status: str = Field(default="ready", min_length=1, max_length=30)
+    metadata_json: str | None = Field(default=None, alias="metadataJson")
+
+
+class UserMaterialAssetCreate(UserMaterialAssetBase):
+    items: list[UserMaterialItemCreate] = Field(default_factory=list)
+
+
+class UserMaterialAssetUpdate(CamelModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    asset_type: str | None = Field(default=None, alias="assetType", min_length=1, max_length=50)
+    source_format: str | None = Field(default=None, alias="sourceFormat", min_length=1, max_length=20)
+    original_filename: str | None = Field(default=None, alias="originalFilename", max_length=255)
+    storage_path: str | None = Field(default=None, alias="storagePath", max_length=500)
+    status: str | None = Field(default=None, min_length=1, max_length=30)
+    metadata_json: str | None = Field(default=None, alias="metadataJson")
+    items: list[UserMaterialItemCreate] | None = None
+
+
+class UserMaterialAssetRead(UserMaterialAssetBase):
+    id: int
+    owner_id: int = Field(alias="ownerId")
+    is_active: bool = Field(alias="isActive")
+    created_at: datetime | None = Field(default=None, alias="createdAt")
+    updated_at: datetime | None = Field(default=None, alias="updatedAt")
+    items: list[UserMaterialItemRead] = Field(default_factory=list)
+
+
+# ---------- Voice Training Jobs ----------
+
+class VoiceTrainingJobBase(CamelModel):
+    job_name: str = Field(..., alias="jobName", min_length=1, max_length=100)
+    material_asset_id: int | None = Field(default=None, alias="materialAssetId")
+    provider: str = Field(default="qwen3_tts", min_length=1, max_length=50)
+    base_model: str = Field(default="qwen3-tts-1.7b", alias="baseModel", min_length=1, max_length=120)
+    status: str = Field(default="queued", min_length=1, max_length=30)
+    config_json: str | None = Field(default=None, alias="configJson")
+    error_message: str | None = Field(default=None, alias="errorMessage")
+    result_model_artifact_id: int | None = Field(default=None, alias="resultModelArtifactId")
+
+
+class VoiceTrainingJobCreate(VoiceTrainingJobBase):
+    pass
+
+
+class VoiceTrainingJobUpdate(CamelModel):
+    job_name: str | None = Field(default=None, alias="jobName", min_length=1, max_length=100)
+    material_asset_id: int | None = Field(default=None, alias="materialAssetId")
+    provider: str | None = Field(default=None, min_length=1, max_length=50)
+    base_model: str | None = Field(default=None, alias="baseModel", min_length=1, max_length=120)
+    status: str | None = Field(default=None, min_length=1, max_length=30)
+    config_json: str | None = Field(default=None, alias="configJson")
+    error_message: str | None = Field(default=None, alias="errorMessage")
+    result_model_artifact_id: int | None = Field(default=None, alias="resultModelArtifactId")
+
+
+class VoiceTrainingJobRead(VoiceTrainingJobBase):
+    id: int
+    owner_id: int = Field(alias="ownerId")
+    started_at: datetime | None = Field(default=None, alias="startedAt")
+    completed_at: datetime | None = Field(default=None, alias="completedAt")
+    created_at: datetime | None = Field(default=None, alias="createdAt")
+    updated_at: datetime | None = Field(default=None, alias="updatedAt")
+
+
+# ---------- Voice Model Artifacts ----------
+
+class VoiceModelArtifactBase(CamelModel):
+    display_name: str = Field(..., alias="displayName", min_length=1, max_length=100)
+    provider: str = Field(default="qwen3_tts", min_length=1, max_length=50)
+    model_version: str | None = Field(default=None, alias="modelVersion", max_length=120)
+    artifact_path: str = Field(..., alias="artifactPath", min_length=1, max_length=500)
+    config_path: str | None = Field(default=None, alias="configPath", max_length=500)
+    tokenizer_path: str | None = Field(default=None, alias="tokenizerPath", max_length=500)
+    runtime_config_json: str | None = Field(default=None, alias="runtimeConfigJson")
+    status: str = Field(default="ready", min_length=1, max_length=30)
+    file_size_bytes: int | None = Field(default=None, alias="fileSizeBytes")
+    training_job_id: int | None = Field(default=None, alias="trainingJobId")
+
+
+class VoiceModelArtifactCreate(VoiceModelArtifactBase):
+    pass
+
+
+class VoiceModelArtifactUpdate(CamelModel):
+    display_name: str | None = Field(default=None, alias="displayName", min_length=1, max_length=100)
+    provider: str | None = Field(default=None, min_length=1, max_length=50)
+    model_version: str | None = Field(default=None, alias="modelVersion", max_length=120)
+    artifact_path: str | None = Field(default=None, alias="artifactPath", min_length=1, max_length=500)
+    config_path: str | None = Field(default=None, alias="configPath", max_length=500)
+    tokenizer_path: str | None = Field(default=None, alias="tokenizerPath", max_length=500)
+    runtime_config_json: str | None = Field(default=None, alias="runtimeConfigJson")
+    status: str | None = Field(default=None, min_length=1, max_length=30)
+    file_size_bytes: int | None = Field(default=None, alias="fileSizeBytes")
+    training_job_id: int | None = Field(default=None, alias="trainingJobId")
+
+
+class VoiceModelArtifactRead(VoiceModelArtifactBase):
+    id: int
+    owner_id: int | None = Field(default=None, alias="ownerId")
+    is_active: bool = Field(alias="isActive")
+    created_at: datetime | None = Field(default=None, alias="createdAt")
+    updated_at: datetime | None = Field(default=None, alias="updatedAt")

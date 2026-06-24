@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="workspace-page">
     <div class="page-header">
       <h1 class="page-title"><Pen :size="28" class="title-icon" /> 创作工作台</h1>
@@ -144,6 +144,15 @@
           <Loader v-else :size="20" class="spin" />
           {{ isGenerating ? '正在生成...' : '一键生成配音' }}
         </button>
+        <div v-if="isGenerating || generationProgress > 0" class="generation-progress workspace-generation-progress">
+          <div class="progress-row">
+            <span>{{ generationStage }}</span>
+            <strong>{{ generationProgress }}%</strong>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" :style="{ width: generationProgress + '%' }"></div>
+          </div>
+        </div>
         <div v-if="generationError" class="error-card">
           {{ generationError }}
         </div>
@@ -191,9 +200,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useAppStore } from "../stores/app.js";
-import { generateTts } from "../services/api.js";
+import { fetchVoices, createTtsJob, fetchTtsJob } from "../services/api.js";
 import SceneCard from "../components/SceneCard.vue";
 import TextEditor from "../components/TextEditor.vue";
 import AudioPlayer from "../components/AudioPlayer.vue";
@@ -212,7 +221,7 @@ const scenes = [
   { id: "emotional", name: "情感朗读", iconComponent: Heart, description: "适合散文诗歌、情感表达", color: "#ef4444", defaultSpeed: 0.8 },
 ];
 
-const availableVoices = [
+const fallbackVoices = [
   { id: "zh-CN-XiaoxiaoNeural", name: "晓晓", gender: "female", style: "温柔", category: "知识类", description: "温柔知性的女声，适合知识讲解、课程录制" },
   { id: "zh-CN-YunxiNeural", name: "云希", gender: "male", style: "磁性", category: "故事类", description: "磁性的男声，适合故事叙述、播客节目" },
   { id: "zh-CN-XiaoyiNeural", name: "晓伊", gender: "female", style: "活泼", category: "情感类", description: "活泼可爱的女声，适合轻松内容" },
@@ -222,6 +231,8 @@ const availableVoices = [
   { id: "zh-CN-liaoning-XiaobeiNeural", name: "东北小北", gender: "female", style: "方言", category: "播客类", description: "东北方言女声，适合搞笑、地域类内容" },
   { id: "zh-CN-shaanxi-XiaoniNeural", name: "陕西小妮", gender: "female", style: "方言", category: "故事类", description: "陕西方言女声，适合方言类有声读物" },
 ];
+
+const availableVoices = ref(fallbackVoices);
 
 const emotions = [
   { value: "calm", lucideIcon: Smile, label: "平静" },
@@ -242,6 +253,18 @@ const isPlaying = ref(false);
 const generatedWork = ref(null);
 const previewVoice = ref(null);
 const generationError = ref("");
+const generationProgress = ref(0);
+const generationStage = ref("等待生成");
+let generationProgressTimer = null;
+let activeGenerationJobId = null;
+
+onMounted(async () => {
+  try {
+    availableVoices.value = await fetchVoices();
+  } catch {
+    availableVoices.value = fallbackVoices;
+  }
+});
 
 const canGenerate = computed(() => {
   return textContent.value.trim().length > 0 && selectedVoice.value !== null && !isGenerating.value;
@@ -269,27 +292,95 @@ function selectVoiceFromPreview() {
   }
 }
 
+function clearGenerationProgressTimer() {
+  if (!generationProgressTimer) return;
+  window.clearTimeout(generationProgressTimer);
+  generationProgressTimer = null;
+}
+
+function startGenerationProgress() {
+  clearGenerationProgressTimer();
+  generationProgress.value = 5;
+  generationStage.value = "任务已进入队列";
+}
+
+function applyGenerationJobStatus(job) {
+  generationProgress.value = Number(job.progress || 0);
+  generationStage.value = job.stage || "正在生成配音";
+}
+
+function finishGenerationProgress() {
+  clearGenerationProgressTimer();
+  generationStage.value = "配音生成完成";
+  generationProgress.value = 100;
+  generationProgressTimer = window.setTimeout(() => {
+    generationProgress.value = 0;
+    generationProgressTimer = null;
+  }, 900);
+}
+
+function resetGenerationProgress() {
+  clearGenerationProgressTimer();
+  activeGenerationJobId = null;
+  generationProgress.value = 0;
+  generationStage.value = "等待生成";
+}
+
+function waitForNextJobPoll() {
+  return new Promise((resolve) => {
+    generationProgressTimer = window.setTimeout(() => {
+      generationProgressTimer = null;
+      resolve();
+    }, 1000);
+  });
+}
+
+async function pollGenerationJob(jobId) {
+  activeGenerationJobId = jobId;
+  while (activeGenerationJobId === jobId) {
+    const job = await fetchTtsJob(jobId);
+    applyGenerationJobStatus(job);
+    if (job.status === "completed") return job.work;
+    if (job.status === "failed") {
+      throw new Error(job.errorMessage || "配音生成失败，请稍后重试。");
+    }
+    await waitForNextJobPoll();
+  }
+  throw new Error("配音生成已取消");
+}
+
+function buildGeneratePayload() {
+  return {
+    content: textContent.value,
+    sceneId: selectedScene.value?.id || "",
+    voiceId: selectedVoice.value.providerVoiceId || selectedVoice.value.id,
+    speed: settings.value.speed,
+    pitch: settings.value.pitch,
+    emotion: settings.value.emotion,
+    bgmType: settings.value.bgmType,
+    bgmVolume: settings.value.bgmVolume,
+  };
+}
+
 async function generateAudio() {
   if (!canGenerate.value) return;
   isGenerating.value = true;
   generationError.value = "";
+  startGenerationProgress();
 
   try {
-    const work = await generateTts({
-      content: textContent.value,
-      sceneId: selectedScene.value?.id || "",
-      voiceId: selectedVoice.value.providerVoiceId || selectedVoice.value.id,
-      speed: settings.value.speed,
-      pitch: settings.value.pitch,
-      emotion: settings.value.emotion,
-      bgmType: settings.value.bgmType,
-      bgmVolume: settings.value.bgmVolume,
-    });
+    const createdJob = await createTtsJob(buildGeneratePayload());
+    applyGenerationJobStatus(createdJob);
+    const work = createdJob.status === "completed" ? createdJob.work : await pollGenerationJob(createdJob.jobId);
+    if (!work) throw new Error("配音生成完成但未返回作品信息");
     generatedWork.value = work;
     store.addWork(work);
+    finishGenerationProgress();
   } catch (error) {
+    resetGenerationProgress();
     generationError.value = error.message || "配音生成失败，请稍后重试。";
   } finally {
+    activeGenerationJobId = null;
     isGenerating.value = false;
   }
 }
@@ -297,13 +388,18 @@ async function generateAudio() {
 function regenerate() {
   generatedWork.value = null;
   generationError.value = "";
+  resetGenerationProgress();
 }
+
+onBeforeUnmount(() => {
+  resetGenerationProgress();
+});
 
 async function saveWork() {
   if (generatedWork.value) {
     store.addWork(generatedWork.value);
     await store.fetchWorks();
-    alert("✅ 作品已保存！可在「我的作品」中查看。");
+    alert("作品已保存！可在「我的作品」中查看。");
   }
 }
 </script>
@@ -411,6 +507,43 @@ async function saveWork() {
   background: var(--primary-light);
   color: var(--primary);
   font-weight: 600;
+}
+
+.generation-progress {
+  margin: -10px 0 18px;
+  padding: 14px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.progress-row strong {
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  transition: width 0.25s ease;
 }
 
 .generate-btn {

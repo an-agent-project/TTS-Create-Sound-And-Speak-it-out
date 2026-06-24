@@ -10,12 +10,14 @@ dist/
 # Python backend artifacts
 __pycache__/
 .pytest_cache/
+.hf-cache/
 *.pyc
 *.log
 backend/dev.db
 
 # Runtime-generated preview audio
 backend/static/previews/*.mp3
+backend/static/previews/*.wav
 backend/static/previews/*.tmp
 backend/data/works.json
 backend/media/*.mp3
@@ -25,6 +27,7 @@ backend/media/*.wav
 .env
 .env.*
 !.env.example
+docs/
 
 # OS / editor
 .DS_Store

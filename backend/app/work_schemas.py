@@ -55,3 +55,12 @@ class Work(BaseModel):
     status: str = "completed"
     createdAt: str
     segmentCount: int = 0
+class TtsJobStatus(BaseModel):
+    jobId: str
+    status: Literal["queued", "preprocessing", "synthesizing", "writing", "completed", "failed"]
+    progress: int = Field(0, ge=0, le=100)
+    stage: str
+    work: Work | None = None
+    errorMessage: str | None = None
+    createdAt: str
+    updatedAt: str

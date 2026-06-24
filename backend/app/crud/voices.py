@@ -74,6 +74,9 @@ def create_voice(db: Session, payload: VoiceCreate, owner_id: int) -> models.Voi
             models.VoiceProviderProfile(
                 provider=provider.provider,
                 provider_voice_id=provider.provider_voice_id,
+                provider_kind=provider.provider_kind,
+                model_artifact_id=provider.model_artifact_id,
+                runtime_config_json=provider.runtime_config_json,
                 locale=provider.locale,
                 supports_wav=provider.supports_wav,
                 supports_mp3=provider.supports_mp3,
@@ -96,9 +99,26 @@ def update_voice(
     """Update a voice. Only permitted for voices owned by `user_id`."""
     if voice.owner_id != user_id:
         return None
-    update_data = payload.model_dump(exclude_unset=True)
+    update_data = payload.model_dump(exclude_unset=True, exclude={"providers"})
     for field, value in update_data.items():
         setattr(voice, field, value)
+    if payload.providers is not None:
+        voice.providers.clear()
+        for provider in payload.providers:
+            voice.providers.append(
+                models.VoiceProviderProfile(
+                    provider=provider.provider,
+                    provider_voice_id=provider.provider_voice_id,
+                    provider_kind=provider.provider_kind,
+                    model_artifact_id=provider.model_artifact_id,
+                    runtime_config_json=provider.runtime_config_json,
+                    locale=provider.locale,
+                    supports_wav=provider.supports_wav,
+                    supports_mp3=provider.supports_mp3,
+                    is_default=provider.is_default,
+                    is_active=True,
+                )
+            )
     db.commit()
     db.refresh(voice)
     return get_voice(db, voice.id, user_id=user_id)

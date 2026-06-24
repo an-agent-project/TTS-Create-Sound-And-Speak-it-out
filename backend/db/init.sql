@@ -94,6 +94,238 @@ CREATE TABLE IF NOT EXISTS voice_preview_audios (
     ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS user_material_assets (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  owner_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  description VARCHAR(500) NULL,
+  asset_type VARCHAR(50) NOT NULL DEFAULT 'audio_dataset',
+  source_format VARCHAR(20) NOT NULL DEFAULT 'audio',
+  original_filename VARCHAR(255) NULL,
+  storage_path VARCHAR(500) NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'ready',
+  metadata_json TEXT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_material_asset_owner (owner_id, is_active),
+  KEY idx_material_asset_status (status),
+  CONSTRAINT fk_material_asset_owner
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_material_items (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  asset_id BIGINT UNSIGNED NOT NULL,
+  filename VARCHAR(255) NOT NULL,
+  media_type VARCHAR(50) NOT NULL DEFAULT 'audio',
+  storage_path VARCHAR(500) NOT NULL,
+  transcript TEXT NULL,
+  duration_seconds DECIMAL(8,2) NULL,
+  file_size_bytes BIGINT UNSIGNED NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'ready',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_material_item_asset (asset_id),
+  KEY idx_material_item_status (status),
+  CONSTRAINT fk_material_item_asset
+    FOREIGN KEY (asset_id) REFERENCES user_material_assets(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS voice_training_jobs (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  owner_id BIGINT UNSIGNED NOT NULL,
+  material_asset_id BIGINT UNSIGNED NULL,
+  result_model_artifact_id BIGINT UNSIGNED NULL,
+  job_name VARCHAR(100) NOT NULL,
+  provider VARCHAR(50) NOT NULL DEFAULT 'qwen3_tts',
+  base_model VARCHAR(120) NOT NULL DEFAULT 'qwen3-tts-1.7b',
+  status VARCHAR(30) NOT NULL DEFAULT 'queued',
+  config_json TEXT NULL,
+  error_message TEXT NULL,
+  started_at DATETIME NULL,
+  completed_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_training_job_owner (owner_id),
+  KEY idx_training_job_material (material_asset_id),
+  KEY idx_training_job_result_model (result_model_artifact_id),
+  KEY idx_training_job_status (status),
+  CONSTRAINT fk_training_job_owner
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_training_job_material
+    FOREIGN KEY (material_asset_id) REFERENCES user_material_assets(id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS voice_model_artifacts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  owner_id BIGINT UNSIGNED NULL,
+  training_job_id BIGINT UNSIGNED NULL,
+  display_name VARCHAR(100) NOT NULL,
+  provider VARCHAR(50) NOT NULL DEFAULT 'qwen3_tts',
+  model_version VARCHAR(120) NULL,
+  artifact_path VARCHAR(500) NOT NULL,
+  config_path VARCHAR(500) NULL,
+  tokenizer_path VARCHAR(500) NULL,
+  runtime_config_json TEXT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'ready',
+  file_size_bytes BIGINT UNSIGNED NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_model_artifact_owner (owner_id, is_active),
+  KEY idx_model_artifact_provider (provider),
+  KEY idx_model_artifact_training_job (training_job_id),
+  KEY idx_model_artifact_status (status),
+  CONSTRAINT fk_model_artifact_owner
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_model_artifact_training_job
+    FOREIGN KEY (training_job_id) REFERENCES voice_training_jobs(id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @sql = (
+  SELECT IF(
+    COUNT(*) = 0,
+    'ALTER TABLE voice_provider_profiles ADD COLUMN provider_kind VARCHAR(50) NOT NULL DEFAULT ''external_tts'' AFTER provider_voice_id',
+    'SELECT 1'
+  )
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'voice_provider_profiles'
+    AND COLUMN_NAME = 'provider_kind'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+
+SET @user_id_type = (
+  SELECT COLUMN_TYPE
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'users'
+    AND COLUMN_NAME = 'id'
+);
+
+SET @sql = (
+  SELECT IF(
+    IS_NULLABLE = 'NO',
+    CONCAT('ALTER TABLE voice_model_artifacts MODIFY COLUMN owner_id ', @user_id_type, ' NULL'),
+    'SELECT 1'
+  )
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'voice_model_artifacts'
+    AND COLUMN_NAME = 'owner_id'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+SET @model_artifact_id_type = (
+  SELECT COLUMN_TYPE
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'voice_model_artifacts'
+    AND COLUMN_NAME = 'id'
+);
+
+SET @provider_model_artifact_id_type = (
+  SELECT COLUMN_TYPE
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'voice_provider_profiles'
+    AND COLUMN_NAME = 'model_artifact_id'
+);
+
+SET @sql = (
+  SELECT IF(
+    @model_artifact_id_type IS NOT NULL
+    AND @provider_model_artifact_id_type IS NOT NULL
+    AND @model_artifact_id_type <> @provider_model_artifact_id_type,
+    CONCAT('ALTER TABLE voice_provider_profiles MODIFY COLUMN model_artifact_id ', @model_artifact_id_type, ' NULL'),
+    'SELECT 1'
+  )
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = (
+  SELECT IF(
+    COUNT(*) = 0,
+    'ALTER TABLE voice_provider_profiles ADD COLUMN model_artifact_id BIGINT UNSIGNED NULL AFTER provider_kind',
+    'SELECT 1'
+  )
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'voice_provider_profiles'
+    AND COLUMN_NAME = 'model_artifact_id'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = (
+  SELECT IF(
+    COUNT(*) = 0,
+    'ALTER TABLE voice_provider_profiles ADD COLUMN runtime_config_json TEXT NULL AFTER model_artifact_id',
+    'SELECT 1'
+  )
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'voice_provider_profiles'
+    AND COLUMN_NAME = 'runtime_config_json'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = (
+  SELECT IF(
+    COUNT(*) = 0,
+    'ALTER TABLE voice_provider_profiles ADD KEY idx_provider_model_artifact (model_artifact_id)',
+    'SELECT 1'
+  )
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'voice_provider_profiles'
+    AND INDEX_NAME = 'idx_provider_model_artifact'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = (
+  SELECT IF(
+    COUNT(*) = 0,
+    'ALTER TABLE voice_provider_profiles ADD CONSTRAINT fk_provider_model_artifact FOREIGN KEY (model_artifact_id) REFERENCES voice_model_artifacts(id) ON DELETE SET NULL ON UPDATE CASCADE',
+    'SELECT 1'
+  )
+  FROM information_schema.REFERENTIAL_CONSTRAINTS
+  WHERE CONSTRAINT_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'voice_provider_profiles'
+    AND CONSTRAINT_NAME = 'fk_provider_model_artifact'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 INSERT INTO voices (
   voice_key,
   display_name,
