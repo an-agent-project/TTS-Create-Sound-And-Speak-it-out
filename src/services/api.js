@@ -26,6 +26,11 @@ async function request(path, options = {}) {
   return response.json();
 }
 
+function authHeaders() {
+  const token = localStorage.getItem("auth_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export function fetchScenes() {
   return request("/scenes");
 }
@@ -46,6 +51,25 @@ export async function fetchVoices() {
   });
 }
 
+export async function createVoiceClone(formData) {
+  const response = await fetch(`${API_BASE}/voice-clones`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: formData,
+  });
+  if (!response.ok) {
+    let message = `请求失败：${response.status}`;
+    try {
+      const data = await response.json();
+      message = data.detail || message;
+    } catch {
+      // Keep the generic message when the response is not JSON.
+    }
+    throw new Error(message);
+  }
+  return response.json();
+}
+
 export function preprocessText(content) {
   return request("/text/preprocess", {
     method: "POST",
@@ -53,6 +77,12 @@ export function preprocessText(content) {
   });
 }
 
+export function synthesizeVoicePreview(payload) {
+  return request("/tts/preview", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
 export function generateTts(payload) {
   return request("/tts/generate", {
     method: "POST",

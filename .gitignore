@@ -10,13 +10,14 @@ dist/
 # Python backend artifacts
 __pycache__/
 .pytest_cache/
+.hf-cache/
+docs/
 *.pyc
 *.log
 backend/dev.db
 
 # Runtime-generated preview audio
-backend/static/previews/*.mp3
-backend/static/previews/*.tmp
+backend/static/previews/
 backend/data/works.json
 backend/media/*.mp3
 backend/media/*.wav

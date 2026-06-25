@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="workspace-page">
     <div class="page-header">
       <h1 class="page-title"><Pen :size="28" class="title-icon" /> 创作工作台</h1>
@@ -191,9 +191,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useAppStore } from "../stores/app.js";
-import { generateTts } from "../services/api.js";
+import { fetchVoices, generateTts } from "../services/api.js";
 import SceneCard from "../components/SceneCard.vue";
 import TextEditor from "../components/TextEditor.vue";
 import AudioPlayer from "../components/AudioPlayer.vue";
@@ -212,16 +212,8 @@ const scenes = [
   { id: "emotional", name: "情感朗读", iconComponent: Heart, description: "适合散文诗歌、情感表达", color: "#ef4444", defaultSpeed: 0.8 },
 ];
 
-const availableVoices = [
-  { id: "zh-CN-XiaoxiaoNeural", name: "晓晓", gender: "female", style: "温柔", category: "知识类", description: "温柔知性的女声，适合知识讲解、课程录制" },
-  { id: "zh-CN-YunxiNeural", name: "云希", gender: "male", style: "磁性", category: "故事类", description: "磁性的男声，适合故事叙述、播客节目" },
-  { id: "zh-CN-XiaoyiNeural", name: "晓伊", gender: "female", style: "活泼", category: "情感类", description: "活泼可爱的女声，适合轻松内容" },
-  { id: "zh-CN-YunjianNeural", name: "云健", gender: "male", style: "活力", category: "播客类", description: "充满活力的男声，适合运动、户外类内容" },
-  { id: "zh-CN-YunyangNeural", name: "云扬", gender: "male", style: "阳光", category: "播客类", description: "阳光开朗的男声，适合轻松内容" },
-  { id: "zh-CN-YunxiaNeural", name: "云夏", gender: "male", style: "沉稳", category: "知识类", description: "沉稳专业的男声，适合纪录片、教程配音" },
-  { id: "zh-CN-liaoning-XiaobeiNeural", name: "东北小北", gender: "female", style: "方言", category: "播客类", description: "东北方言女声，适合搞笑、地域类内容" },
-  { id: "zh-CN-shaanxi-XiaoniNeural", name: "陕西小妮", gender: "female", style: "方言", category: "故事类", description: "陕西方言女声，适合方言类有声读物" },
-];
+const availableVoices = ref([]);
+const voiceLoadError = ref("");
 
 const emotions = [
   { value: "calm", lucideIcon: Smile, label: "平静" },
@@ -243,6 +235,17 @@ const generatedWork = ref(null);
 const previewVoice = ref(null);
 const generationError = ref("");
 
+
+onMounted(async () => {
+  try {
+    availableVoices.value = (await fetchVoices()).map((voice) => ({
+      ...voice,
+      tags: voice.tags || [voice.style, voice.category].filter(Boolean),
+    }));
+  } catch (error) {
+    voiceLoadError.value = `音色列表加载失败：${error.message}`;
+  }
+});
 const canGenerate = computed(() => {
   return textContent.value.trim().length > 0 && selectedVoice.value !== null && !isGenerating.value;
 });

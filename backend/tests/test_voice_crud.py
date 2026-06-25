@@ -49,16 +49,17 @@ def _auth_headers(token):
 
 
 def test_anonymous_can_list_default_voices():
-    """Anonymous users see only owner_id=NULL voices (the 8 defaults in seed)."""
+    """Anonymous users see system voices, including the default Bailian fixed voice."""
     client = _make_client()
 
-    # Without registering, there are no voices in an in-memory DB.
-    # Create one default voice (owner_id=None) and one owned voice indirectly
-    # by seeding them via the DB directly.
     resp = client.get("/api/voices")
     assert resp.status_code == 200
-    assert resp.json() == []
-
+    voices = resp.json()
+    bailian_voice = next(v for v in voices if v["voiceKey"] == "bailian-qwen-cherry")
+    assert bailian_voice["ownerId"] is None
+    assert bailian_voice["displayName"] == "芊悦"
+    assert bailian_voice["providers"][0]["provider"] == "bailian_tts"
+    assert bailian_voice["providers"][0]["providerVoiceId"] == "bailian:qwen3-tts-flash:Cherry"
 
 def test_authenticated_user_sees_default_and_own_voices():
     """Logged-in users see default voices + their own."""

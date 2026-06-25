@@ -58,8 +58,8 @@ def make_client():
 def test_preview_tts_generates_audio_and_stores_cache_record(monkeypatch, tmp_path):
     calls = []
 
-    async def fake_synthesize_preview(text, voice_id, output_filename=None):
-        calls.append((text, voice_id))
+    async def fake_synthesize_preview(text, provider_profile, output_filename=None):
+        calls.append((text, provider_profile.provider_voice_id))
         output_path = tmp_path / "preview-test.mp3"
         output_path.write_bytes(b"fake mp3")
         return {
@@ -99,8 +99,8 @@ def test_preview_tts_generates_audio_and_stores_cache_record(monkeypatch, tmp_pa
 def test_preview_tts_uses_cached_audio_without_regenerating(monkeypatch, tmp_path):
     calls = []
 
-    async def fake_synthesize_preview(text, voice_id, output_filename=None):
-        calls.append((text, voice_id))
+    async def fake_synthesize_preview(text, provider_profile, output_filename=None):
+        calls.append((text, provider_profile.provider_voice_id))
         output_path = tmp_path / "preview-test.mp3"
         output_path.write_bytes(b"fake mp3")
         return {
@@ -126,8 +126,8 @@ def test_preview_tts_uses_cached_audio_without_regenerating(monkeypatch, tmp_pat
 def test_preview_tts_regenerates_when_cached_file_is_missing(monkeypatch, tmp_path):
     calls = []
 
-    async def fake_synthesize_preview(text, voice_id, output_filename=None):
-        calls.append((text, voice_id, output_filename))
+    async def fake_synthesize_preview(text, provider_profile, output_filename=None):
+        calls.append((text, provider_profile.provider_voice_id, output_filename))
         output_path = tmp_path / output_filename
         output_path.write_bytes(b"new fake mp3")
         return {
@@ -204,3 +204,57 @@ def test_preview_tts_rejects_empty_text():
 
     assert response.status_code == 422
     assert "text" in response.text
+
+def test_preview_tts_supports_bailian_provider(monkeypatch, tmp_path):
+    calls = []
+
+    async def fake_synthesize_preview(text, provider_profile, output_filename=None):
+        calls.append((text, provider_profile.provider, provider_profile.provider_voice_id))
+        output_path = tmp_path / "bailian-preview.mp3"
+        output_path.write_bytes(b"fake bailian mp3")
+        return {
+            "filename": "bailian-preview.mp3",
+            "path": output_path,
+            "duration": 6,
+        }
+
+    monkeypatch.setattr("app.api.tts.synthesize_preview", fake_synthesize_preview)
+
+    client, SessionLocal = make_client()
+    db = SessionLocal()
+    voice = Voice(
+        voice_key="bailian-qwen-cherry",
+        display_name="Bailian Cherry",
+        gender="female",
+        style="general",
+        category="knowledge",
+        description="Bailian fixed voice",
+        is_recommended=True,
+        is_active=True,
+    )
+    voice.providers.append(
+        VoiceProviderProfile(
+            provider="bailian_tts",
+            provider_voice_id="bailian:qwen3-tts-flash:Cherry",
+            locale="zh-CN",
+            supports_wav=False,
+            supports_mp3=True,
+            is_default=True,
+            is_active=True,
+        )
+    )
+    db.add(voice)
+    db.commit()
+    db.close()
+
+    response = client.post(
+        "/api/tts/preview",
+        json={"text": "你好，欢迎使用百炼语音合成。", "voiceId": "bailian:qwen3-tts-flash:Cherry"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "audioUrl": "/static/previews/bailian-preview.mp3",
+        "duration": 6,
+    }
+    assert calls == [("你好，欢迎使用百炼语音合成。", "bailian_tts", "bailian:qwen3-tts-flash:Cherry")]

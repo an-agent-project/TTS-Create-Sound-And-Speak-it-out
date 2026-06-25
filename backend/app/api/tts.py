@@ -44,7 +44,7 @@ async def preview_tts(
     )
     result = await synthesize_preview(
         payload.text,
-        payload.voice_id,
+        provider_profile=provider_profile,
         output_filename=output_filename,
     )
     audio_url = f"/static/previews/{result['filename']}"

@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user, get_optional_user
+from app.bailian_defaults import seed_bailian_default_voice
 from app.crud import voices as voice_crud
 from app.database import get_db
 from app.models import User
@@ -21,6 +22,7 @@ def list_voices(
     current_user: Annotated[User | None, Depends(get_optional_user)] = None,
     db: Session = Depends(get_db),
 ) -> list[VoiceRead]:
+    seed_bailian_default_voice(db)
     return voice_crud.list_voices(
         db,
         category=category,

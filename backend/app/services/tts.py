@@ -2,11 +2,12 @@ import asyncio
 import os
 import shutil
 import tempfile
-from pathlib import Path
 from collections.abc import Sequence
+from pathlib import Path
 
 import edge_tts
 
+from app.services.bailian_tts import BAILIAN_TTS_PROVIDER, synthesize_bailian_to_file
 from app.work_schemas import TextSegment
 
 EMOTION_RATE_MAP = {
@@ -31,6 +32,7 @@ async def synthesize_to_file(
     pitch: int,
     emotion: str,
     output_path: Path,
+    provider: str = "edge_tts",
 ) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     await _synthesize_text(
@@ -40,6 +42,7 @@ async def synthesize_to_file(
         pitch=pitch,
         emotion=emotion,
         output_path=output_path,
+        provider=provider,
     )
     if not _has_media_tools():
         return _estimate_duration_seconds(text, speed)
@@ -54,21 +57,25 @@ async def synthesize_segments_to_file(
     emotion: str,
     output_path: Path,
     max_concurrency: int = 3,
+    provider: str = "edge_tts",
 ) -> int:
     if not segments:
-        raise ValueError("没有可合成的文本分段")
+        raise ValueError("no text segments to synthesize")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if not _has_media_tools():
         combined_text = "\n\n".join(segment.text for segment in segments)
-        await _synthesize_with_retry(
-            text=combined_text,
-            voice=voice,
-            speed=speed,
-            pitch=pitch,
-            emotion=emotion,
-            output_path=output_path,
-        )
+        retry_kwargs = {
+            "text": combined_text,
+            "voice": voice,
+            "speed": speed,
+            "pitch": pitch,
+            "emotion": emotion,
+            "output_path": output_path,
+        }
+        if provider != "edge_tts":
+            retry_kwargs["provider"] = provider
+        await _synthesize_with_retry(**retry_kwargs)
         return _estimate_duration_seconds(combined_text, speed)
 
     semaphore = asyncio.Semaphore(max_concurrency)
@@ -79,14 +86,17 @@ async def synthesize_segments_to_file(
 
         async def synthesize_one(index: int, segment: TextSegment) -> None:
             async with semaphore:
-                await _synthesize_with_retry(
-                    text=segment.text,
-                    voice=voice,
-                    speed=speed,
-                    pitch=pitch,
-                    emotion=emotion,
-                    output_path=segment_paths[index],
-                )
+                retry_kwargs = {
+                    "text": segment.text,
+                    "voice": voice,
+                    "speed": speed,
+                    "pitch": pitch,
+                    "emotion": emotion,
+                    "output_path": segment_paths[index],
+                }
+                if provider != "edge_tts":
+                    retry_kwargs["provider"] = provider
+                await _synthesize_with_retry(**retry_kwargs)
 
         await asyncio.gather(
             *(synthesize_one(index, segment) for index, segment in enumerate(segments))
@@ -109,10 +119,11 @@ async def _synthesize_with_retry(
     emotion: str,
     output_path: Path,
     attempts: int = 3,
+    provider: str = "edge_tts",
 ) -> None:
     for attempt in range(attempts):
         try:
-            await _synthesize_text(text, voice, speed, pitch, emotion, output_path)
+            await _synthesize_text(text, voice, speed, pitch, emotion, output_path, provider=provider)
             return
         except Exception:
             output_path.unlink(missing_ok=True)
@@ -128,7 +139,18 @@ async def _synthesize_text(
     pitch: int,
     emotion: str,
     output_path: Path,
+    provider: str = "edge_tts",
 ) -> None:
+    if provider == BAILIAN_TTS_PROVIDER:
+        await synthesize_bailian_to_file(
+            text=text,
+            provider_voice_id=voice,
+            output_path=output_path,
+        )
+        return
+    if provider != "edge_tts":
+        raise RuntimeError(f"Unsupported TTS provider: {provider}")
+
     rate_percent = int(round((speed - 1.0) * 100)) + EMOTION_RATE_MAP.get(emotion, 0)
     rate_percent = max(-50, min(100, rate_percent))
     pitch_hz = pitch + EMOTION_PITCH_MAP.get(emotion, 0)
@@ -234,7 +256,7 @@ async def _run_command(*command: str) -> str:
     stdout, stderr = await process.communicate()
     if process.returncode != 0:
         message = stderr.decode("utf-8", errors="replace").strip()
-        raise RuntimeError(message or f"命令执行失败: {command[0]}")
+        raise RuntimeError(message or f"command failed: {command[0]}")
     return stdout.decode("utf-8", errors="replace")
 
 

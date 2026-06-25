@@ -2,16 +2,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.auth import router as auth_router
 from app.api.tts import router as tts_router
 from app.api.voices import router as voices_router
+from app.api.voice_clones import router as voice_clones_router
+from app.crud import tts_preview as tts_preview_crud
 from app.data import SCENE_BY_ID, SCENES, VOICE_BY_ID
-from app.database import engine
+from app.database import engine, get_db
 from app.models import Base
+from sqlalchemy.orm import Session
 from app.services.text_processing import preprocess_text
 from app.services.tts import synthesize_segments_to_file
 from app.storage import MEDIA_DIR, delete_work, ensure_storage, get_work, list_works, save_work
@@ -42,6 +45,7 @@ app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
 app.include_router(auth_router)
 app.include_router(tts_router)
 app.include_router(voices_router)
+app.include_router(voice_clones_router)
 
 
 @app.get("/health")
@@ -61,9 +65,12 @@ def preprocess(payload: PreprocessRequest):
 
 
 @app.post("/api/tts/generate", response_model=Work)
-async def generate_tts(payload: GenerateRequest, request: Request) -> Work:
+async def generate_tts(payload: GenerateRequest, request: Request, db: Session = Depends(get_db)) -> Work:
+    provider_profile = tts_preview_crud.get_provider_profile_by_voice_id(db, payload.voiceId)
     voice = VOICE_BY_ID.get(payload.voiceId)
-    if voice is None:
+    provider = provider_profile.provider if provider_profile else "edge_tts"
+    voice_name = provider_profile.voice.display_name if provider_profile else (voice["name"] if voice else None)
+    if provider_profile is None and voice is None:
         raise HTTPException(status_code=400, detail="unsupported voice id")
 
     scene = SCENE_BY_ID.get(payload.sceneId or "")
@@ -84,6 +91,7 @@ async def generate_tts(payload: GenerateRequest, request: Request) -> Work:
             pitch=payload.pitch,
             emotion=payload.emotion,
             output_path=output_path,
+            provider=provider,
         )
     except Exception as exc:
         if output_path.exists():
@@ -98,7 +106,7 @@ async def generate_tts(payload: GenerateRequest, request: Request) -> Work:
         sceneId=payload.sceneId or "",
         sceneName=scene_name,
         voiceId=payload.voiceId,
-        voiceName=voice["name"],
+        voiceName=voice_name or payload.voiceId,
         speed=payload.speed,
         pitch=payload.pitch,
         emotion=payload.emotion,
@@ -110,7 +118,6 @@ async def generate_tts(payload: GenerateRequest, request: Request) -> Work:
         segmentCount=len(processed.segments),
     )
     return save_work(work)
-
 
 @app.get("/api/works", response_model=list[Work])
 def get_works() -> list[Work]:

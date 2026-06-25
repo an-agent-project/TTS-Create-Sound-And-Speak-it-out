@@ -86,15 +86,22 @@
           <input ref="fileInput" type="file" accept=".mp3,.wav,.flac,.m4a,.aac" style="display:none" @change="onFileSelected" />
         </div>
 
+        <div class="clone-form">
+          <label class="field-label" for="clone-name">音色名称</label>
+          <input id="clone-name" v-model="cloneName" class="form-input" type="text" placeholder="例如：我的旁白音色" />
+          <label class="field-label" for="clone-preferred-name">英文标识</label>
+          <input id="clone-preferred-name" v-model="clonePreferredName" class="form-input" type="text" placeholder="可选，例如 my_voice" />
+        </div>
+
         <!-- 提取按钮 -->
         <button
           class="extract-btn"
-          :disabled="!uploadedFile || isExtracting"
-          @click="startExtract"
+          :disabled="!uploadedFile || !cloneName || isExtracting"
+          @click="cloneVoice"
         >
           <Loader v-if="isExtracting" :size="18" class="spin" />
           <Wand2 v-else :size="18" />
-          {{ isExtracting ? '正在提取音色...' : '提取音色' }}
+          {{ isExtracting ? '正在克隆音色...' : '克隆音色' }}
         </button>
 
         <!-- 状态提示 -->
@@ -111,6 +118,7 @@
 <script setup>
 import { ref, reactive, onBeforeUnmount } from "vue"
 import { Wand2, Music, Upload, Mic, Play, Pause, Plus, Download, Clock, HardDrive, FileAudio, Loader } from "lucide-vue-next"
+import { createVoiceClone, synthesizeVoicePreview } from "../services/api.js"
 
 const fileInput = ref(null)
 const audioEl = ref(null)
@@ -119,12 +127,14 @@ const isDragover = ref(false)
 const isExtracting = ref(false)
 const extractStatus = ref("")
 const extractOk = ref(true)
+const cloneName = ref("")
+const clonePreferredName = ref("")
 const playingId = ref(null)
 const currentTime = ref(0)
 const duration = ref(0)
 const progressPercent = ref(0)
 
-// 提取结果（mock）
+// 提取结果
 const extractedVoices = reactive([])
 
 // --- 上传 ---
@@ -135,6 +145,7 @@ function onFileSelected(e) {
   if (f) {
     uploadedFile.value = f
     extractStatus.value = ""
+    if (!cloneName.value) cloneName.value = f.name.replace(/\.[^.]+$/, "")
   }
   e.target.value = ""
 }
@@ -145,51 +156,54 @@ function handleDrop(e) {
   if (f) {
     uploadedFile.value = f
     extractStatus.value = ""
+    if (!cloneName.value) cloneName.value = f.name.replace(/\.[^.]+$/, "")
   }
 }
 
 function removeFile() {
   uploadedFile.value = null
   extractStatus.value = ""
+  cloneName.value = ""
+  clonePreferredName.value = ""
 }
 
-// --- 提取 (Mock AI) ---
-async function startExtract() {
-  if (!uploadedFile.value) return
+// --- 音色克隆 ---
+async function cloneVoice() {
+  if (!uploadedFile.value || !cloneName.value || isExtracting.value) return
   isExtracting.value = true
   extractStatus.value = ""
   extractOk.value = true
 
-  // 模拟 AI 提取过程 (1-2 秒)
-  await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000))
-
-  // 从文件名推断音色名
-  const base = uploadedFile.value.name.replace(/\.[^.]+$/, "")
-  const nameMap = {
-    "xiaoxiao": "晓晓", "yunxi": "云希",
+  try {
+    const formData = new FormData()
+    formData.append("name", cloneName.value)
+    formData.append("preferredName", clonePreferredName.value || cloneName.value)
+    formData.append("file", uploadedFile.value)
+    const clonedVoice = await createVoiceClone(formData)
+    const preview = await synthesizeVoicePreview({
+      text: "你好，这是我的克隆音色试听。欢迎来到音色提取台。",
+      voiceId: clonedVoice.providers?.[0]?.providerVoiceId,
+    })
+    extractedVoices.unshift({
+      id: clonedVoice.id || Date.now(),
+      name: clonedVoice.displayName || clonedVoice.name || cloneName.value,
+      tags: ["个人音色", "已入库"],
+      duration: preview.duration || 0,
+      size: uploadedFile.value.size,
+      src: preview.audioUrl,
+    })
+    extractStatus.value = "音色克隆成功，试听音频已生成，并已加入个人音色库。"
+    extractOk.value = true
+    uploadedFile.value = null
+    cloneName.value = ""
+    clonePreferredName.value = ""
+  } catch (error) {
+    extractStatus.value = error.message || "音色克隆失败"
+    extractOk.value = false
+  } finally {
+    isExtracting.value = false
   }
-  const voiceName = nameMap[base.toLowerCase()] || base
-
-  // 生成 mock 标签
-  const allTags = [["温柔", "知识"], ["磁性", "故事"], ["温柔"], ["清晰", "自然"], ["柔和", "沉稳"]]
-  const tags = allTags[Math.floor(Math.random() * allTags.length)]
-
-  // 生成 mock 结果
-  const mockAudio = URL.createObjectURL(uploadedFile.value)
-  extractedVoices.unshift({
-    id: Date.now(),
-    name: voiceName,
-    tags: tags,
-    duration: Math.floor(Math.random() * 30) + 5,
-    size: uploadedFile.value.size,
-    src: mockAudio,
-  })
-
-  isExtracting.value = false
-  extractStatus.value = "提取完成！"
-  extractOk.value = true
 }
-
 // --- 播放 ---
 function togglePlay(voice) {
   if (playingId.value === voice.id) {
@@ -217,8 +231,7 @@ function onEnd() { playingId.value = null }
 
 // --- 操作 ---
 function addToLibrary(voice) {
-  alert("添加到个人音色库：" + voice.name)
-  // TODO: 对接后端添加到个人音色库
+  alert("已在个人音色库中：" + voice.name)
 }
 function downloadVoice(voice) {
   if (voice.src) {
@@ -292,6 +305,11 @@ onBeforeUnmount(() => { audioEl.value?.pause() })
 .file-meta{font-size:12px;color:#94a3b8}
 .remove-file{width:24px;height:24px;border-radius:50%;border:1px solid #e2e8f0;background:#fff;color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;margin-left:auto}
 .remove-file:hover{background:#fef2f2;border-color:#fecaca;color:#ef4444}
+
+.clone-form{display:grid;gap:8px;margin-bottom:16px}
+.field-label{font-size:12px;font-weight:600;color:#64748b}
+.form-input{height:38px;border:1px solid #d1d5db;border-radius:8px;padding:0 10px;color:#1e293b;background:#fff}
+.form-input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
 
 .extract-btn{width:100%;padding:14px;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s}
 .extract-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 14px rgba(99,102,241,.4)}

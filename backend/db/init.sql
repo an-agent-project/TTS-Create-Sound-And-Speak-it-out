@@ -157,6 +157,62 @@ ON DUPLICATE KEY UPDATE
   is_default = VALUES(is_default),
   is_active = TRUE;
 
+
+INSERT INTO voices (
+  voice_key,
+  display_name,
+  gender,
+  style,
+  category,
+  description,
+  is_recommended
+) VALUES
+  ('bailian-qwen-cherry', '芊悦', 'female', '阳光', '知识类', '阳光积极、亲切自然的百炼 Qwen-TTS 女声。', TRUE),
+  ('bailian-qwen-serena', '苏瑶', 'female', '温柔', '情感类', '温柔细腻的百炼 Qwen-TTS 女声。', TRUE),
+  ('bailian-qwen-ethan', '晨煦', 'male', '温暖', '播客类', '阳光温暖的百炼 Qwen-TTS 男声。', TRUE),
+  ('bailian-qwen-chelsie', '千雪', 'female', '二次元', '故事类', '二次元风格的百炼 Qwen-TTS 女性音色。', FALSE),
+  ('bailian-qwen-moon', '月白', 'male', '率性', '播客类', '率性帅气的百炼 Qwen-TTS 男声。', FALSE),
+  ('bailian-qwen-maia', '四月', 'female', '知性', '知识类', '知性温柔的百炼 Qwen-TTS 女声。', TRUE),
+  ('bailian-qwen-kai', '凯', 'male', '低沉', '故事类', '低沉舒适的百炼 Qwen-TTS 男声。', FALSE),
+  ('bailian-qwen-neil', '阿闻', 'male', '新闻', '知识类', '新闻主持风格的百炼 Qwen-TTS 男声。', FALSE)
+ON DUPLICATE KEY UPDATE
+  display_name = VALUES(display_name),
+  gender = VALUES(gender),
+  style = VALUES(style),
+  category = VALUES(category),
+  description = VALUES(description),
+  is_recommended = VALUES(is_recommended),
+  is_active = TRUE,
+  owner_id = NULL;
+
+INSERT INTO voice_provider_profiles (
+  voice_id,
+  provider,
+  provider_voice_id,
+  locale,
+  supports_wav,
+  supports_mp3,
+  is_default
+)
+SELECT voices.id, 'bailian_tts', seed.provider_voice_id, 'zh-CN', FALSE, TRUE, TRUE
+FROM (
+  SELECT 'bailian-qwen-cherry' AS voice_key, 'bailian:qwen3-tts-flash:Cherry' AS provider_voice_id
+  UNION ALL SELECT 'bailian-qwen-serena', 'bailian:qwen3-tts-flash:Serena'
+  UNION ALL SELECT 'bailian-qwen-ethan', 'bailian:qwen3-tts-flash:Ethan'
+  UNION ALL SELECT 'bailian-qwen-chelsie', 'bailian:qwen3-tts-flash:Chelsie'
+  UNION ALL SELECT 'bailian-qwen-moon', 'bailian:qwen3-tts-flash:Moon'
+  UNION ALL SELECT 'bailian-qwen-maia', 'bailian:qwen3-tts-flash:Maia'
+  UNION ALL SELECT 'bailian-qwen-kai', 'bailian:qwen3-tts-flash:Kai'
+  UNION ALL SELECT 'bailian-qwen-neil', 'bailian:qwen3-tts-flash:Neil'
+) AS seed
+JOIN voices ON voices.voice_key = seed.voice_key
+ON DUPLICATE KEY UPDATE
+  voice_id = VALUES(voice_id),
+  locale = VALUES(locale),
+  supports_wav = VALUES(supports_wav),
+  supports_mp3 = VALUES(supports_mp3),
+  is_default = VALUES(is_default),
+  is_active = TRUE;
 -- Mark provider profiles for invalid voices as inactive as well.
 UPDATE voice_provider_profiles
 SET is_active = FALSE

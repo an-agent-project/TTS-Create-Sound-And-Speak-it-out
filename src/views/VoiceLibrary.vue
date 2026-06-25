@@ -46,7 +46,7 @@
           {{ showFavoritesOnly ? "显示全部" : "仅看收藏" }}
         </button>
       </div>
-    </div>
+    </div>
 
     <div class="section">
       <div class="grid grid-4">
@@ -105,7 +105,7 @@ const previewVoice = ref(null);
 const manageMode = ref(false);
 const loadError = ref("");
 
-const categories = ["知识类", "播客类", "故事类", "情感类"];
+const categories = ["知识类", "播客类", "故事类", "情感类", "个人音色"];
 
 const fallbackVoices = [
   { id: "zh-CN-XiaoxiaoNeural", name: "晓晓", gender: "female", style: "温柔", category: "知识类", description: "温柔自然的女声，适合知识讲解、课程录制和散文朗读", isRecommended: true, tags: ["温柔", "知识"] },
@@ -120,12 +120,16 @@ const fallbackVoices = [
 
 const allVoices = ref(fallbackVoices);
 
+async function loadVoices() {
+  allVoices.value = (await fetchVoices()).map((voice) => ({
+    ...voice,
+    tags: voice.tags || [voice.style, voice.category].filter(Boolean),
+  }));
+}
+
 onMounted(async () => {
   try {
-    allVoices.value = (await fetchVoices()).map((voice) => ({
-      ...voice,
-      tags: voice.tags || [voice.style, voice.category].filter(Boolean),
-    }));
+    await loadVoices();
   } catch (error) {
     loadError.value = `后端暂时不可用，当前展示本地示例音色：${error.message}`;
   }
@@ -250,4 +254,5 @@ function goToWorkspace(voice) {
   color: #b91c1c;
   font-size: 14px;
 }
+
 </style>
