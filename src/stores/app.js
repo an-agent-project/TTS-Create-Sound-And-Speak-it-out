@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { deleteWorkById, fetchWorks as fetchWorksApi } from "../services/api.js";
 
 const AUTH_TOKEN_KEY = "auth_token";
@@ -25,6 +25,9 @@ export const useAppStore = defineStore("app", () => {
   const token = ref("");
   const user = ref(emptyUser());
 
+  // ── Admin ──
+  const isAdmin = computed(() => user.value.role === "admin");
+
   function emptyUser() {
     return {
       id: 0,
@@ -32,6 +35,7 @@ export const useAppStore = defineStore("app", () => {
       email: "",
       avatar: "",
       phone: "",
+      role: "user",
       created_at: "",
     };
   }
@@ -44,6 +48,7 @@ export const useAppStore = defineStore("app", () => {
       email: apiUser.email || "",
       avatar: apiUser.avatar || "",
       phone: apiUser.phone || "",
+      role: apiUser.role || "user",
       created_at: apiUser.created_at || apiUser.createdAt || "",
     };
   }
@@ -154,9 +159,7 @@ export const useAppStore = defineStore("app", () => {
         body: JSON.stringify(fields),
       });
       if (resp.ok) setUser(await resp.json());
-    } catch {
-      // Keep the optimistic local update if the request fails.
-    }
+    } catch {}
   }
 
   function updatePhone(phone) {
@@ -240,6 +243,8 @@ export const useAppStore = defineStore("app", () => {
     isLoggedIn,
     token,
     user,
+    isAdmin,
+    authHeaders,
     setAuth,
     setUser,
     login,

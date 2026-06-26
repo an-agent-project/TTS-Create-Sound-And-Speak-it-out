@@ -4,9 +4,10 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.material_defaults import seed_default_materials
-from app.models import Material
+from app.models import Material, User
 from app.schemas import MaterialRead
 from app.storage import MEDIA_DIR
 
@@ -27,7 +28,7 @@ def list_materials(category: str | None = None, db: Session = Depends(get_db)) -
 
 
 @router.post("", response_model=MaterialRead, status_code=status.HTTP_201_CREATED)
-async def upload_material(file: UploadFile = File(...), db: Session = Depends(get_db)) -> Material:
+async def upload_material(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> Material:
     content_type = (file.content_type or "").lower()
     if content_type and content_type not in ALLOWED_AUDIO_TYPES:
         raise HTTPException(status_code=400, detail="unsupported audio file type")
@@ -50,7 +51,7 @@ async def upload_material(file: UploadFile = File(...), db: Session = Depends(ge
         category="bgm",
         format=ext.lstrip("."),
         file_size_bytes=len(audio_bytes),
-        uploader="我",
+        uploader=current_user.username,
         audio_path=str(output_path),
         audio_url=f"/media/materials/{filename}",
     )

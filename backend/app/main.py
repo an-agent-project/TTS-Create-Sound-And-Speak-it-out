@@ -10,11 +10,14 @@ from app.api.auth import router as auth_router
 from app.api.materials import router as materials_router
 from app.api.tts import router as tts_router
 from app.api.voices import router as voices_router
+from app.api.admin import router as admin_router
+from app.api.reports import router as reports_router
 from app.api.voice_clones import router as voice_clones_router
 from app.crud import tts_preview as tts_preview_crud
 from app.data import SCENE_BY_ID, SCENES, VOICE_BY_ID
+from app.auth import get_current_user
 from app.database import engine, get_db
-from app.models import Base
+from app.models import Base, User
 from app.models import Material
 from sqlalchemy.orm import Session
 from app.services.text_processing import preprocess_text
@@ -49,6 +52,8 @@ app.include_router(materials_router)
 app.include_router(tts_router)
 app.include_router(voices_router)
 app.include_router(voice_clones_router)
+app.include_router(admin_router)
+app.include_router(reports_router)
 
 
 @app.get("/health")
@@ -130,12 +135,12 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
     return save_work(work)
 
 @app.get("/api/works", response_model=list[Work])
-def get_works() -> list[Work]:
+def get_works(current_user: User = Depends(get_current_user)) -> list[Work]:
     return list_works()
 
 
 @app.get("/api/works/{work_id}", response_model=Work)
-def get_work_detail(work_id: str) -> Work:
+def get_work_detail(work_id: str, current_user: User = Depends(get_current_user)) -> Work:
     work = get_work(work_id)
     if work is None:
         raise HTTPException(status_code=404, detail="work not found")
@@ -143,7 +148,7 @@ def get_work_detail(work_id: str) -> Work:
 
 
 @app.delete("/api/works/{work_id}")
-def remove_work(work_id: str) -> dict[str, bool]:
+def remove_work(work_id: str, current_user: User = Depends(get_current_user)) -> dict[str, bool]:
     if not delete_work(work_id):
         raise HTTPException(status_code=404, detail="work not found")
     return {"ok": True}

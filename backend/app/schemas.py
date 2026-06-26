@@ -153,6 +153,7 @@ class UserRead(CamelModel):
     email: str | None = None
     phone: str | None = None
     avatar: str | None = None
+    role: str = "user"
     is_active: bool = True
     created_at: datetime | None = None
 

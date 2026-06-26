@@ -33,7 +33,7 @@ def _user_to_read(user: User) -> UserRead:
 
 def _token_response(user: User) -> TokenResponse:
     return TokenResponse(
-        access_token=create_access_token(user.id),
+        access_token=create_access_token(user.id, user.role or "user"),
         user=_user_to_read(user),
     )
 

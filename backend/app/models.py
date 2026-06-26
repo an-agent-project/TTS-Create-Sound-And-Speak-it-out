@@ -15,6 +15,7 @@ class User(Base):
     phone = Column(String(20))
     avatar = Column(Text)
     is_active = Column(Boolean, nullable=False, default=True)
+    role = Column(String(20), nullable=False, default="user")
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -98,7 +99,7 @@ class Material(Base):
     format = Column(String(10), nullable=False)
     duration_seconds = Column(Integer, nullable=False, default=0)
     file_size_bytes = Column(Integer, nullable=False, default=0)
-    uploader = Column(String(100), nullable=False, default="系统素材")
+    uploader = Column(String(100), nullable=False, default="绯荤粺绱犳潗")
     audio_path = Column(String(500), nullable=False)
     audio_url = Column(String(500), nullable=False)
     license = Column(String(100))
@@ -106,3 +107,22 @@ class Material(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class MaterialReport(Base):
+    __tablename__ = "material_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False, index=True)
+    reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    reason_category = Column(String(50), nullable=False)
+    reason_detail = Column(String(500))
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    reviewed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    review_note = Column(String(500))
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+    material = relationship("Material", foreign_keys=[material_id])
+    reporter = relationship("User", foreign_keys=[reporter_id])
+    reviewer = relationship("User", foreign_keys=[reviewed_by])
