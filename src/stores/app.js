@@ -1,5 +1,8 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
+import { deleteWorkById, fetchWorks as fetchWorksApi } from "../services/api.js";
+
+const AUTH_TOKEN_KEY = "auth_token";
 
 export const useAppStore = defineStore("app", () => {
   const works = ref([]);
@@ -12,153 +15,193 @@ export const useAppStore = defineStore("app", () => {
 
   const settings = ref({
     speed: 1.0,
-    pitch: "normal",
+    pitch: 0,
     emotion: "calm",
     bgmType: "none",
     bgmVolume: 30,
   });
 
-  // User auth state
   const isLoggedIn = ref(false);
-  const user = ref({
-    id: "",
-    username: "",
-    email: "",
-    avatar: "",
-    phone: "",
-    registeredAt: "",
-  });
+  const token = ref("");
+  const user = ref(emptyUser());
 
-  // ???? API ??????
-  function setUser(apiUser) {
-    if (!apiUser) return;
-    isLoggedIn.value = true;
-    user.value = {
-      id: String(apiUser.id || ""),
+  // ── Admin ──
+  const isAdmin = computed(() => user.value.role === "admin");
+
+  function emptyUser() {
+    return {
+      id: 0,
+      username: "",
+      email: "",
+      avatar: "",
+      phone: "",
+      role: "user",
+      created_at: "",
+    };
+  }
+
+  function normalizeUser(apiUser) {
+    if (!apiUser) return emptyUser();
+    return {
+      id: apiUser.id || 0,
       username: apiUser.username || "",
       email: apiUser.email || "",
       avatar: apiUser.avatar || "",
       phone: apiUser.phone || "",
-      registeredAt: apiUser.createdAt || "",
+      role: apiUser.role || "user",
+      created_at: apiUser.created_at || apiUser.createdAt || "",
     };
-    localStorage.setItem("user", JSON.stringify(user.value));
-    localStorage.setItem("isLoggedIn", "true");
   }
 
-  // ???? localStorage ????????
-  function login(username, password) {
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const found = users.find(
-      (u) => u.username === username && u.password === password
-    );
-    if (!found) {
-      return { success: false, message: "????????" };
+  function saveToken(nextToken) {
+    token.value = nextToken || "";
+    if (token.value) {
+      localStorage.setItem(AUTH_TOKEN_KEY, token.value);
+    } else {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
     }
-    isLoggedIn.value = true;
-    user.value = {
-      id: found.id,
-      username: found.username,
-      email: found.email || "",
-      avatar: found.avatar || "",
-      phone: found.phone || "",
-      registeredAt: found.registeredAt,
-    };
-    localStorage.setItem("user", JSON.stringify(user.value));
-    localStorage.setItem("isLoggedIn", "true");
+  }
+
+  function authHeaders() {
+    if (!token.value) return {};
+    return { Authorization: `Bearer ${token.value}` };
+  }
+
+  function setAuth(payload) {
+    const nextToken = payload?.access_token || payload?.accessToken || "";
+    if (nextToken) saveToken(nextToken);
+    user.value = normalizeUser(payload?.user || payload);
+    isLoggedIn.value = Boolean(user.value.id);
+    if (isLoggedIn.value) {
+      localStorage.setItem("user", JSON.stringify(user.value));
+    }
+  }
+
+  function setUser(apiUser) {
+    user.value = normalizeUser(apiUser);
+    isLoggedIn.value = Boolean(user.value.id);
+    if (isLoggedIn.value) {
+      localStorage.setItem("user", JSON.stringify(user.value));
+    }
+  }
+
+  async function login(identifier, password) {
+    const value = identifier.trim();
+    const body = value.includes("@")
+      ? { email: value.toLowerCase(), password }
+      : { username: value, password };
+    const resp = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      return { success: false, message: data.detail || "登录失败" };
+    }
+    setAuth(data);
     return { success: true };
   }
 
-  // ???? localStorage ????????
-  function register(username, password) {
-    if (!username || !password) {
-      return { success: false, message: "??????????" };
-    }
-    if (password.length < 4) {
-      return { success: false, message: "????????4?" };
-    }
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    if (users.find((u) => u.username === username)) {
-      return { success: false, message: "????????" };
-    }
-    const newUser = {
-      id: Date.now().toString(),
+  async function register(username, password, email = "", code = "") {
+    const body = {
       username,
-      email: "",
       password,
-      avatar: "",
-      phone: "",
-      registeredAt: new Date().toISOString(),
+      email: email || undefined,
+      code: code || undefined,
     };
-    users.push(newUser);
-    localStorage.setItem("users", JSON.stringify(users));
-    isLoggedIn.value = true;
-    user.value = {
-      id: newUser.id,
-      username: newUser.username,
-      email: newUser.email,
-      avatar: newUser.avatar,
-      phone: newUser.phone,
-      registeredAt: newUser.registeredAt,
-    };
-    localStorage.setItem("user", JSON.stringify(user.value));
-    localStorage.setItem("isLoggedIn", "true");
+    const resp = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      return { success: false, message: data.detail || "注册失败" };
+    }
+    setAuth(data);
     return { success: true };
   }
 
   function logout() {
     isLoggedIn.value = false;
-    user.value = { id: "", username: "", email: "", avatar: "", phone: "", registeredAt: "" };
+    saveToken("");
+    user.value = emptyUser();
     localStorage.removeItem("user");
-    localStorage.removeItem("isLoggedIn");
   }
 
-  function updatePhone(phoneNumber) {
-    user.value.phone = phoneNumber;
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const idx = users.findIndex((u) => u.id === user.value.id);
-    if (idx > -1) {
-      users[idx].phone = phoneNumber;
-      localStorage.setItem("users", JSON.stringify(users));
-    }
-    localStorage.setItem("user", JSON.stringify(user.value));
-  }
-
-  function updateAvatar(avatarData) {
-    user.value.avatar = avatarData;
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const idx = users.findIndex((u) => u.id === user.value.id);
-    if (idx > -1) {
-      users[idx].avatar = avatarData;
-      localStorage.setItem("users", JSON.stringify(users));
-    }
-    localStorage.setItem("user", JSON.stringify(user.value));
-  }
-
-  // Init from localStorage
-  function initFromStorage() {
-    const stored = localStorage.getItem("isLoggedIn");
-    if (stored === "true") {
-      const userData = JSON.parse(localStorage.getItem("user") || "{}");
-      if (userData.id) {
-        isLoggedIn.value = true;
-        user.value = userData;
+  async function fetchMe() {
+    if (!token.value) return;
+    try {
+      const resp = await fetch("/api/auth/me", { headers: authHeaders() });
+      if (!resp.ok) {
+        logout();
+        return;
+      }
+      setUser(await resp.json());
+    } catch {
+      const cached = localStorage.getItem("user");
+      if (cached) {
+        user.value = normalizeUser(JSON.parse(cached));
+        isLoggedIn.value = Boolean(user.value.id);
       }
     }
   }
 
-  initFromStorage();
-
-  function addWork(work) {
-    works.value.unshift({
-      id: Date.now().toString(),
-      ...work,
-      status: "completed",
-      createdAt: new Date().toISOString(),
-      duration: Math.ceil(work.content.length / 5),
-    });
+  async function updateMe(fields) {
+    for (const key of Object.keys(fields)) {
+      if (key in user.value) user.value[key] = fields[key];
+    }
+    try {
+      const resp = await fetch("/api/auth/me", {
+        method: "PUT",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify(fields),
+      });
+      if (resp.ok) setUser(await resp.json());
+    } catch {}
   }
 
-  function deleteWork(id) {
+  function updatePhone(phone) {
+    return updateMe({ phone });
+  }
+
+  function updateAvatar(avatar) {
+    return updateMe({ avatar });
+  }
+
+  async function changePassword(oldPassword, newPassword) {
+    const resp = await fetch("/api/auth/change-password", {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+    });
+    if (!resp.ok) {
+      const data = await resp.json();
+      return { success: false, message: data.detail || "密码修改失败" };
+    }
+    return { success: true };
+  }
+
+  const savedToken = localStorage.getItem(AUTH_TOKEN_KEY);
+  if (savedToken) {
+    token.value = savedToken;
+    fetchMe();
+  }
+
+  async function fetchWorks() {
+    works.value = await fetchWorksApi();
+  }
+
+  function addWork(work) {
+    const existed = works.value.some((item) => item.id === work.id);
+    if (!existed) {
+      works.value.unshift(work);
+    }
+  }
+
+  async function deleteWork(id) {
+    await deleteWorkById(id);
     works.value = works.value.filter((w) => w.id !== id);
   }
 
@@ -182,7 +225,7 @@ export const useAppStore = defineStore("app", () => {
     currentWork.value = null;
     settings.value = {
       speed: 1.0,
-      pitch: "normal",
+      pitch: 0,
       emotion: "calm",
       bgmType: "none",
       bgmVolume: 30,
@@ -198,13 +241,21 @@ export const useAppStore = defineStore("app", () => {
     currentWork,
     settings,
     isLoggedIn,
+    token,
     user,
+    isAdmin,
+    authHeaders,
+    setAuth,
     setUser,
     login,
     register,
     logout,
+    fetchMe,
+    updateMe,
     updatePhone,
     updateAvatar,
+    changePassword,
+    fetchWorks,
     addWork,
     deleteWork,
     toggleFavoriteVoice,

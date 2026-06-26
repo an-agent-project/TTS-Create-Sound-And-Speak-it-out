@@ -1,5 +1,3 @@
-﻿import hashlib
-import secrets
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -11,27 +9,15 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String(255), nullable=False, unique=True, index=True)
-    username = Column(String(50), nullable=False)
-    password_hash = Column(String(128), nullable=False)
+    username = Column(String(50), nullable=False, unique=True, index=True)
+    password_hash = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=True, unique=True, index=True)
+    phone = Column(String(20))
+    avatar = Column(Text)
     is_active = Column(Boolean, nullable=False, default=True)
+    role = Column(String(20), nullable=False, default="user")
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
-
-    @staticmethod
-    def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
-        salt = salt or secrets.token_hex(16)
-        h = hashlib.sha256((password + salt).encode()).hexdigest()
-        return f"{salt}${h}", salt
-
-    @staticmethod
-    def verify_password(password: str, password_hash: str) -> bool:
-        try:
-            salt, _ = password_hash.split("$", 1)
-            hashed, _ = User.hash_password(password, salt)
-            return hashed == password_hash
-        except (ValueError, AttributeError):
-            return False
 
 
 class Voice(Base):
@@ -46,6 +32,7 @@ class Voice(Base):
     description = Column(String(255))
     is_recommended = Column(Boolean, nullable=False, default=False, index=True)
     is_active = Column(Boolean, nullable=False, default=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -99,3 +86,43 @@ class VoicePreviewAudio(Base):
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
     provider_profile = relationship("VoiceProviderProfile", back_populates="preview_audios")
+
+
+class Material(Base):
+    __tablename__ = "materials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    material_key = Column(String(100), nullable=False, unique=True, index=True)
+    filename = Column(String(255), nullable=False)
+    title = Column(String(100), nullable=False)
+    category = Column(String(50), nullable=False, default="bgm", index=True)
+    format = Column(String(10), nullable=False)
+    duration_seconds = Column(Integer, nullable=False, default=0)
+    file_size_bytes = Column(Integer, nullable=False, default=0)
+    uploader = Column(String(100), nullable=False, default="绯荤粺绱犳潗")
+    audio_path = Column(String(500), nullable=False)
+    audio_url = Column(String(500), nullable=False)
+    license = Column(String(100))
+    source_url = Column(String(500))
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class MaterialReport(Base):
+    __tablename__ = "material_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False, index=True)
+    reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    reason_category = Column(String(50), nullable=False)
+    reason_detail = Column(String(500))
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    reviewed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    review_note = Column(String(500))
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+    material = relationship("Material", foreign_keys=[material_id])
+    reporter = relationship("User", foreign_keys=[reporter_id])
+    reviewer = relationship("User", foreign_keys=[reviewed_by])

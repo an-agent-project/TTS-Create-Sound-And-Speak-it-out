@@ -1,9 +1,25 @@
-﻿import re
-import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+import re
+from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+
+class CamelModel(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+def normalize_email(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip().lower()
+    if not value:
+        return None
+    if not EMAIL_RE.match(value):
+        raise ValueError("email format is invalid")
+    return value
 
 
 # ---------- TTS ----------
@@ -23,12 +39,6 @@ class TtsPreviewRequest(BaseModel):
 class TtsPreviewResponse(BaseModel):
     audio_url: str = Field(..., alias="audioUrl")
     duration: int
-
-
-# ---------- Camel base ----------
-
-class CamelModel(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
 
 # ---------- Voice Provider ----------
@@ -74,11 +84,14 @@ class VoiceUpdate(CamelModel):
     category: str | None = Field(default=None, max_length=50)
     description: str | None = Field(default=None, max_length=255)
     is_recommended: bool | None = Field(default=None, alias="isRecommended")
+    voice_key: str | None = Field(default=None, alias="voiceKey", min_length=1, max_length=100)
+    providers: list[VoiceProviderProfileCreate] | None = None
 
 
 class VoiceRead(VoiceBase):
     id: int
     is_active: bool = Field(alias="isActive")
+    owner_id: int | None = Field(default=None, alias="ownerId")
     providers: list[VoiceProviderProfileRead] = Field(default_factory=list)
 
 
@@ -90,62 +103,98 @@ class SendCodeRequest(CamelModel):
     @field_validator("email")
     @classmethod
     def validate_email_format(cls, value: str) -> str:
-        value = value.strip().lower()
-        if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", value):
-            raise ValueError("邮箱格式不正确")
-        return value
+        return normalize_email(value) or ""
 
 
 class SendCodeResponse(CamelModel):
-    message: str = "验证码已发送"
-    # 开发阶段返回验证码（生产环境应删除此字段）
+    message: str = "verification code sent"
     code: str = ""
 
 
-class RegisterRequest(CamelModel):
-    email: str = Field(..., min_length=5, max_length=255)
-    username: str = Field(..., min_length=2, max_length=50)
-    password: str = Field(..., min_length=4, max_length=128)
-    code: str = Field(..., min_length=6, max_length=6)
-
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, value: str) -> str:
-        value = value.strip().lower()
-        if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", value):
-            raise ValueError("邮箱格式不正确")
-        return value
-
-    @field_validator("code")
-    @classmethod
-    def validate_code(cls, value: str) -> str:
-        if not value.isdigit():
-            raise ValueError("验证码必须是6位数字")
-        return value
-
-
 class LoginRequest(CamelModel):
-    email: str = Field(..., min_length=5, max_length=255)
+    username: str | None = Field(default=None, min_length=1, max_length=50)
+    email: str | None = Field(default=None, min_length=5, max_length=255)
     password: str = Field(..., min_length=1, max_length=128)
 
     @field_validator("email")
     @classmethod
-    def validate_email(cls, value: str) -> str:
-        value = value.strip().lower()
-        if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", value):
-            raise ValueError("邮箱格式不正确")
+    def validate_email(cls, value: str | None) -> str | None:
+        return normalize_email(value)
+
+    @model_validator(mode="after")
+    def require_identifier(self) -> "LoginRequest":
+        if not self.username and not self.email:
+            raise ValueError("username or email is required")
+        return self
+
+
+class RegisterRequest(CamelModel):
+    username: str = Field(..., min_length=1, max_length=50)
+    password: str = Field(..., min_length=4, max_length=128)
+    email: str | None = Field(default=None, min_length=5, max_length=255)
+    code: str | None = Field(default=None, min_length=6, max_length=6)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str | None) -> str | None:
+        return normalize_email(value)
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, value: str | None) -> str | None:
+        if value is not None and not value.isdigit():
+            raise ValueError("verification code must be 6 digits")
         return value
 
 
 class UserRead(CamelModel):
     id: int
-    email: str
     username: str
-    isActive: bool = True
-    createdAt: str = ""
+    email: str | None = None
+    phone: str | None = None
+    avatar: str | None = None
+    role: str = "user"
+    is_active: bool = True
+    created_at: datetime | None = None
 
 
-class AuthResponse(CamelModel):
-    success: bool
-    message: str = ""
-    user: UserRead | None = None
+class UserUpdate(CamelModel):
+    email: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=20)
+    avatar: str | None = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str | None) -> str | None:
+        return normalize_email(value)
+
+
+class ChangePasswordRequest(CamelModel):
+    old_password: str = Field(..., alias="oldPassword", min_length=1)
+    new_password: str = Field(..., alias="newPassword", min_length=4, max_length=128)
+
+
+class TokenResponse(CamelModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserRead
+
+
+# ---------- Materials ----------
+
+class MaterialRead(CamelModel):
+    id: int
+    material_key: str = Field(alias="materialKey")
+    filename: str
+    title: str
+    category: str
+    format: str
+    duration_seconds: int = Field(alias="duration")
+    file_size_bytes: int = Field(alias="fileSize")
+    uploader: str
+    audio_url: str = Field(alias="audioUrl")
+    license: str | None = None
+    source_url: str | None = Field(default=None, alias="sourceUrl")
+
+
+AuthResponse = TokenResponse

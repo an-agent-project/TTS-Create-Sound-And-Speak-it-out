@@ -7,14 +7,18 @@ SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS users (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  email VARCHAR(255) NOT NULL,
   username VARCHAR(50) NOT NULL,
-  password_hash VARCHAR(128) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NULL,
+  phone VARCHAR(20) NULL,
+  avatar TEXT NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  role VARCHAR(20) NOT NULL DEFAULT user,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uk_email (email)
+  UNIQUE KEY uk_user_username (username),
+  UNIQUE KEY uk_user_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS voices (
@@ -27,12 +31,19 @@ CREATE TABLE IF NOT EXISTS voices (
   description VARCHAR(255) NULL,
   is_recommended BOOLEAN NOT NULL DEFAULT FALSE,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  role VARCHAR(20) NOT NULL DEFAULT user,
+  owner_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_voice_key (voice_key),
   KEY idx_voice_category (category),
-  KEY idx_voice_recommended (is_recommended)
+  KEY idx_voice_recommended (is_recommended),
+  KEY idx_voice_owner (owner_id),
+  CONSTRAINT fk_voice_owner
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS voice_provider_profiles (
@@ -45,6 +56,7 @@ CREATE TABLE IF NOT EXISTS voice_provider_profiles (
   supports_mp3 BOOLEAN NOT NULL DEFAULT TRUE,
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  role VARCHAR(20) NOT NULL DEFAULT user,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -84,6 +96,61 @@ CREATE TABLE IF NOT EXISTS voice_preview_audios (
     ON DELETE RESTRICT
     ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS materials (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  material_key VARCHAR(100) NOT NULL,
+  filename VARCHAR(255) NOT NULL,
+  title VARCHAR(100) NOT NULL,
+  category VARCHAR(50) NOT NULL DEFAULT 'bgm',
+  format VARCHAR(10) NOT NULL,
+  duration_seconds INT NOT NULL DEFAULT 0,
+  file_size_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  uploader VARCHAR(100) NOT NULL DEFAULT '系统素材',
+  audio_path VARCHAR(500) NOT NULL,
+  audio_url VARCHAR(500) NOT NULL,
+  license VARCHAR(100) NULL,
+  source_url VARCHAR(500) NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  role VARCHAR(20) NOT NULL DEFAULT user,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_material_key (material_key),
+  KEY idx_material_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE IF NOT EXISTS material_reports (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  material_id BIGINT UNSIGNED NOT NULL,
+  reporter_id BIGINT UNSIGNED NOT NULL,
+  reason_category VARCHAR(50) NOT NULL,
+  reason_detail VARCHAR(500) NULL,
+  status VARCHAR(20) NOT NULL DEFAULT ''pending'',
+  reviewed_by BIGINT UNSIGNED NULL,
+  review_note VARCHAR(500) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_report_material (material_id),
+  KEY idx_report_status (status),
+  KEY idx_report_reporter (reporter_id),
+  UNIQUE KEY uk_active_report (material_id, reporter_id, status),
+  CONSTRAINT fk_report_material
+    FOREIGN KEY (material_id) REFERENCES materials(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_report_reporter
+    FOREIGN KEY (reporter_id) REFERENCES users(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_report_reviewer
+    FOREIGN KEY (reviewed_by) REFERENCES users(id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 INSERT INTO voices (
   voice_key,
@@ -148,6 +215,62 @@ ON DUPLICATE KEY UPDATE
   is_default = VALUES(is_default),
   is_active = TRUE;
 
+
+INSERT INTO voices (
+  voice_key,
+  display_name,
+  gender,
+  style,
+  category,
+  description,
+  is_recommended
+) VALUES
+  ('bailian-qwen-cherry', '芊悦', 'female', '阳光', '知识类', '阳光积极、亲切自然的百炼 Qwen-TTS 女声。', TRUE),
+  ('bailian-qwen-serena', '苏瑶', 'female', '温柔', '情感类', '温柔细腻的百炼 Qwen-TTS 女声。', TRUE),
+  ('bailian-qwen-ethan', '晨煦', 'male', '温暖', '播客类', '阳光温暖的百炼 Qwen-TTS 男声。', TRUE),
+  ('bailian-qwen-chelsie', '千雪', 'female', '二次元', '故事类', '二次元风格的百炼 Qwen-TTS 女性音色。', FALSE),
+  ('bailian-qwen-moon', '月白', 'male', '率性', '播客类', '率性帅气的百炼 Qwen-TTS 男声。', FALSE),
+  ('bailian-qwen-maia', '四月', 'female', '知性', '知识类', '知性温柔的百炼 Qwen-TTS 女声。', TRUE),
+  ('bailian-qwen-kai', '凯', 'male', '低沉', '故事类', '低沉舒适的百炼 Qwen-TTS 男声。', FALSE),
+  ('bailian-qwen-neil', '阿闻', 'male', '新闻', '知识类', '新闻主持风格的百炼 Qwen-TTS 男声。', FALSE)
+ON DUPLICATE KEY UPDATE
+  display_name = VALUES(display_name),
+  gender = VALUES(gender),
+  style = VALUES(style),
+  category = VALUES(category),
+  description = VALUES(description),
+  is_recommended = VALUES(is_recommended),
+  is_active = TRUE,
+  owner_id = NULL;
+
+INSERT INTO voice_provider_profiles (
+  voice_id,
+  provider,
+  provider_voice_id,
+  locale,
+  supports_wav,
+  supports_mp3,
+  is_default
+)
+SELECT voices.id, 'bailian_tts', seed.provider_voice_id, 'zh-CN', FALSE, TRUE, TRUE
+FROM (
+  SELECT 'bailian-qwen-cherry' AS voice_key, 'bailian:qwen3-tts-flash:Cherry' AS provider_voice_id
+  UNION ALL SELECT 'bailian-qwen-serena', 'bailian:qwen3-tts-flash:Serena'
+  UNION ALL SELECT 'bailian-qwen-ethan', 'bailian:qwen3-tts-flash:Ethan'
+  UNION ALL SELECT 'bailian-qwen-chelsie', 'bailian:qwen3-tts-flash:Chelsie'
+  UNION ALL SELECT 'bailian-qwen-moon', 'bailian:qwen3-tts-flash:Moon'
+  UNION ALL SELECT 'bailian-qwen-maia', 'bailian:qwen3-tts-flash:Maia'
+  UNION ALL SELECT 'bailian-qwen-kai', 'bailian:qwen3-tts-flash:Kai'
+  UNION ALL SELECT 'bailian-qwen-neil', 'bailian:qwen3-tts-flash:Neil'
+) AS seed
+JOIN voices ON voices.voice_key = seed.voice_key
+ON DUPLICATE KEY UPDATE
+  voice_id = VALUES(voice_id),
+  locale = VALUES(locale),
+  supports_wav = VALUES(supports_wav),
+  supports_mp3 = VALUES(supports_mp3),
+  is_default = VALUES(is_default),
+  is_active = TRUE;
 -- Mark provider profiles for invalid voices as inactive as well.
 UPDATE voice_provider_profiles
 SET is_active = FALSE
