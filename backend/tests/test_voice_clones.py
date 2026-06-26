@@ -78,3 +78,26 @@ def test_create_voice_clone_creates_user_owned_bailian_voice(monkeypatch):
     db.close()
     assert voice.display_name == "我的克隆音色"
     assert provider.provider_voice_id == "bailian:qwen3-tts-vc-2026-01-22:voice-clone-123"
+
+
+def test_create_voice_clone_generates_ascii_preferred_name_when_blank(monkeypatch):
+    calls = []
+
+    async def fake_clone(audio_bytes, mime_type, preferred_name):
+        calls.append(preferred_name)
+        return "voice-clone-blank"
+
+    monkeypatch.setattr("app.api.voice_clones.create_qwen_voice_clone", fake_clone)
+
+    client, _ = _make_client()
+    token, _ = _register_and_token(client)
+
+    response = client.post(
+        "/api/voice-clones",
+        data={"name": "我的克隆音色"},
+        files={"file": ("voice.mp3", b"abc", "audio/mpeg")},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 201, response.text
+    assert calls[0].startswith("voice_")

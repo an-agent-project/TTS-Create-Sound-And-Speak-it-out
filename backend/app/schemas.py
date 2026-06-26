@@ -179,4 +179,21 @@ class TokenResponse(CamelModel):
     user: UserRead
 
 
+# ---------- Materials ----------
+
+class MaterialRead(CamelModel):
+    id: int
+    material_key: str = Field(alias="materialKey")
+    filename: str
+    title: str
+    category: str
+    format: str
+    duration_seconds: int = Field(alias="duration")
+    file_size_bytes: int = Field(alias="fileSize")
+    uploader: str
+    audio_url: str = Field(alias="audioUrl")
+    license: str | None = None
+    source_url: str | None = Field(default=None, alias="sourceUrl")
+
+
 AuthResponse = TokenResponse

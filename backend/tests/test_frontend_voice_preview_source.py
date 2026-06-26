@@ -46,10 +46,21 @@ def test_vite_proxies_api_and_static_audio_to_backend():
 def test_workspace_loads_voices_from_voice_api():
     source = WORKSPACE_PATH.read_text(encoding="utf-8")
 
-    assert 'import { fetchVoices, generateTts }' in source
+    assert "fetchVoices" in source
     assert 'await fetchVoices()' in source
     assert 'const availableVoices = ref' in source
     assert 'const availableVoices = [' not in source
+
+
+def test_workspace_and_workshop_load_materials_from_api():
+    api_source = API_PATH.read_text(encoding="utf-8")
+    workspace_source = WORKSPACE_PATH.read_text(encoding="utf-8")
+    workshop_source = (ROOT_DIR / "src" / "views" / "WorkshopPage.vue").read_text(encoding="utf-8")
+
+    assert "export function fetchMaterials" in api_source
+    assert 'await fetchMaterials("bgm")' in workspace_source
+    assert 'await fetchMaterials("bgm")' in workshop_source
+    assert "钢琴背景音乐.wav" not in workshop_source
 
 def test_extraction_page_exposes_bailian_clone_upload_not_voice_library():
     api_source = API_PATH.read_text(encoding="utf-8")

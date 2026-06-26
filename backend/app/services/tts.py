@@ -111,6 +111,68 @@ async def synthesize_segments_to_file(
     return max(1, round(duration))
 
 
+async def mix_bgm_to_file(
+    voice_path: Path,
+    bgm_path: Path | None,
+    output_path: Path,
+    bgm_volume: int = 30,
+) -> float:
+    if not _has_media_tools():
+        return _estimate_duration_seconds("", 1.0)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if not bgm_path:
+        await _run_command(
+            _media_command("ffmpeg"),
+            "-y",
+            "-loglevel",
+            "error",
+            "-i",
+            str(voice_path),
+            "-af",
+            "alimiter=limit=0.92",
+            "-codec:a",
+            "libmp3lame",
+            "-b:a",
+            "96k",
+            str(output_path),
+        )
+        return await _probe_duration(output_path)
+
+    bgm_gain = max(0.0, min(1.0, bgm_volume / 100)) * 0.28
+    await _run_command(
+        _media_command("ffmpeg"),
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        str(voice_path),
+        "-stream_loop",
+        "-1",
+        "-i",
+        str(bgm_path),
+        "-filter_complex",
+        (
+            "[0:a]volume=0.92[a0];"
+            f"[1:a]volume={bgm_gain:.3f}[a1];"
+            "[a0][a1]amix=inputs=2:duration=first:dropout_transition=0,"
+            "alimiter=limit=0.92[out]"
+        ),
+        "-map",
+        "[out]",
+        "-ar",
+        "24000",
+        "-ac",
+        "1",
+        "-codec:a",
+        "libmp3lame",
+        "-b:a",
+        "96k",
+        str(output_path),
+    )
+    return await _probe_duration(output_path)
+
+
 async def _synthesize_with_retry(
     text: str,
     voice: str,
@@ -172,34 +234,35 @@ async def _concat_segments(
     temp_path: Path,
 ) -> float:
     if len(segment_paths) == 1:
-        shutil.copyfile(segment_paths[0], output_path)
+        await _smooth_segment(segment_paths[0], output_path)
         return await _probe_duration(output_path)
 
-    silence_paths: dict[int, Path] = {}
-    for pause_ms in sorted(set(pauses_ms[:-1])):
-        silence_path = temp_path / f"silence-{pause_ms}.mp3"
-        await _create_silence(silence_path, pause_ms)
-        silence_paths[pause_ms] = silence_path
-
-    manifest_path = temp_path / "concat.txt"
-    manifest_lines: list[str] = []
+    inputs: list[str] = []
+    filters: list[str] = []
+    labels: list[str] = []
+    durations = [await _probe_duration(path) for path in segment_paths]
     for index, segment_path in enumerate(segment_paths):
-        manifest_lines.append(f"file '{_escape_concat_path(segment_path)}'")
+        inputs.extend(["-i", str(segment_path)])
+        fade_out_start = max(0, durations[index] - 0.02)
+        fade = f"afade=t=in:st=0:d=0.02,afade=t=out:st={fade_out_start:.3f}:d=0.02,"
+        filters.append(f"[{index}:a]{fade}aresample=24000,aformat=sample_rates=24000:channel_layouts=mono[s{index}]")
+        labels.append(f"[s{index}]")
         if index < len(segment_paths) - 1:
-            manifest_lines.append(f"file '{_escape_concat_path(silence_paths[pauses_ms[index]])}'")
-    manifest_path.write_text("\n".join(manifest_lines) + "\n", encoding="utf-8")
+            pause_seconds = max(0, pauses_ms[index]) / 1000
+            filters.append(f"aevalsrc=0:d={pause_seconds:.3f}:s=24000, aformat=sample_rates=24000:channel_layouts=mono[p{index}]")
+            labels.append(f"[p{index}]")
+    filters.append(f"{''.join(labels)}concat=n={len(labels)}:v=0:a=1,alimiter=limit=0.92[out]")
 
     await _run_command(
         _media_command("ffmpeg"),
         "-y",
         "-loglevel",
         "error",
-        "-f",
-        "concat",
-        "-safe",
-        "0",
-        "-i",
-        str(manifest_path),
+        *inputs,
+        "-filter_complex",
+        ";".join(filters),
+        "-map",
+        "[out]",
         "-ar",
         "24000",
         "-ac",
@@ -211,6 +274,28 @@ async def _concat_segments(
         str(output_path),
     )
     return await _probe_duration(output_path)
+
+
+async def _smooth_segment(segment_path: Path, output_path: Path) -> None:
+    await _run_command(
+        _media_command("ffmpeg"),
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        str(segment_path),
+        "-af",
+        "afade=t=in:st=0:d=0.02,alimiter=limit=0.92",
+        "-ar",
+        "24000",
+        "-ac",
+        "1",
+        "-codec:a",
+        "libmp3lame",
+        "-b:a",
+        "48k",
+        str(output_path),
+    )
 
 
 async def _create_silence(output_path: Path, pause_ms: int) -> None:
@@ -269,7 +354,7 @@ def _media_command(name: str) -> str | None:
     if path_from_env:
         return path_from_env
 
-    exe_name = f"{name}.exe" if os.name == "nt" else name
+    exe_names = [name, f"{name}.exe"]
     candidate_dirs = [
         os.getenv("TTS_FFMPEG_DIR"),
         os.getenv("FFMPEG_DIR"),
@@ -279,16 +364,13 @@ def _media_command(name: str) -> str | None:
     for candidate_dir in candidate_dirs:
         if not candidate_dir:
             continue
-        candidate = Path(candidate_dir) / exe_name
-        if candidate.exists():
-            return str(candidate)
+        for exe_name in exe_names:
+            candidate = Path(candidate_dir) / exe_name
+            if candidate.exists():
+                return str(candidate)
     return None
 
 
 def _estimate_duration_seconds(text: str, speed: float) -> int:
     chars_per_second = 4.5 * max(speed, 0.5)
     return max(1, round(len(text.strip()) / chars_per_second))
-
-
-def _escape_concat_path(path: Path) -> str:
-    return str(path.resolve()).replace("'", "'\\''")

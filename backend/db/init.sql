@@ -94,6 +94,28 @@ CREATE TABLE IF NOT EXISTS voice_preview_audios (
     ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS materials (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  material_key VARCHAR(100) NOT NULL,
+  filename VARCHAR(255) NOT NULL,
+  title VARCHAR(100) NOT NULL,
+  category VARCHAR(50) NOT NULL DEFAULT 'bgm',
+  format VARCHAR(10) NOT NULL,
+  duration_seconds INT NOT NULL DEFAULT 0,
+  file_size_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  uploader VARCHAR(100) NOT NULL DEFAULT '系统素材',
+  audio_path VARCHAR(500) NOT NULL,
+  audio_url VARCHAR(500) NOT NULL,
+  license VARCHAR(100) NULL,
+  source_url VARCHAR(500) NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_material_key (material_key),
+  KEY idx_material_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO voices (
   voice_key,
   display_name,

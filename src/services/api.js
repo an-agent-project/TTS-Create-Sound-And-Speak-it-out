@@ -26,6 +26,16 @@ async function request(path, options = {}) {
   return response.json();
 }
 
+function errorMessage(detail, fallback) {
+  if (!detail) return fallback;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const missingAuth = detail.some((item) => item?.loc?.includes("authorization"));
+    if (missingAuth) return "请先登录后再克隆音色";
+  }
+  return detail.message || detail.msg || JSON.stringify(detail);
+}
+
 function authHeaders() {
   const token = localStorage.getItem("auth_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -36,7 +46,7 @@ export function fetchScenes() {
 }
 
 export async function fetchVoices() {
-  const voices = await request("/voices");
+  const voices = await request("/voices", { headers: authHeaders() });
   return voices.map((voice) => {
     const provider =
       voice.providers?.find((item) => item.isActive && item.isDefault) ||
@@ -51,6 +61,30 @@ export async function fetchVoices() {
   });
 }
 
+export function fetchMaterials(category = "") {
+  const query = category ? `?category=${encodeURIComponent(category)}` : "";
+  return request(`/materials${query}`);
+}
+
+export async function uploadMaterial(formData) {
+  const response = await fetch(`${API_BASE}/materials`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: formData,
+  });
+  if (!response.ok) {
+    let message = `请求失败：${response.status}`;
+    try {
+      const data = await response.json();
+      message = errorMessage(data.detail, message);
+    } catch {
+      // Keep the generic message when the response is not JSON.
+    }
+    throw new Error(message);
+  }
+  return response.json();
+}
+
 export async function createVoiceClone(formData) {
   const response = await fetch(`${API_BASE}/voice-clones`, {
     method: "POST",
@@ -61,7 +95,7 @@ export async function createVoiceClone(formData) {
     let message = `请求失败：${response.status}`;
     try {
       const data = await response.json();
-      message = data.detail || message;
+      message = errorMessage(data.detail, message);
     } catch {
       // Keep the generic message when the response is not JSON.
     }

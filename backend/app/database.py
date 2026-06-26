@@ -3,6 +3,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.env import load_env
+
+load_env()
 
 DEFAULT_DATABASE_URL = "mysql+pymysql://root:123456@127.0.0.1:3306/tts_podcast?charset=utf8mb4"
 DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)

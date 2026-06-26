@@ -117,10 +117,9 @@
               <label class="form-label">背景音乐</label>
               <select class="form-select" v-model="settings.bgmType">
                 <option value="none">无背景音乐</option>
-                <option value="relax">轻松舒缓</option>
-                <option value="warm">温暖治愈</option>
-                <option value="tense">紧张悬念</option>
-                <option value="formal">正式大气</option>
+                <option v-for="material in bgmMaterials" :key="material.materialKey" :value="material.materialKey">
+                  {{ material.title || material.filename }}
+                </option>
               </select>
             </div>
 
@@ -193,7 +192,7 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useAppStore } from "../stores/app.js";
-import { fetchVoices, generateTts } from "../services/api.js";
+import { fetchMaterials, fetchVoices, generateTts } from "../services/api.js";
 import SceneCard from "../components/SceneCard.vue";
 import TextEditor from "../components/TextEditor.vue";
 import AudioPlayer from "../components/AudioPlayer.vue";
@@ -213,6 +212,7 @@ const scenes = [
 ];
 
 const availableVoices = ref([]);
+const bgmMaterials = ref([]);
 const voiceLoadError = ref("");
 
 const emotions = [
@@ -242,6 +242,7 @@ onMounted(async () => {
       ...voice,
       tags: voice.tags || [voice.style, voice.category].filter(Boolean),
     }));
+    bgmMaterials.value = await fetchMaterials("bgm");
   } catch (error) {
     voiceLoadError.value = `音色列表加载失败：${error.message}`;
   }

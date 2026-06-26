@@ -177,7 +177,7 @@ async function cloneVoice() {
   try {
     const formData = new FormData()
     formData.append("name", cloneName.value)
-    formData.append("preferredName", clonePreferredName.value || cloneName.value)
+    if (clonePreferredName.value.trim()) formData.append("preferredName", clonePreferredName.value.trim())
     formData.append("file", uploadedFile.value)
     const clonedVoice = await createVoiceClone(formData)
     const preview = await synthesizeVoicePreview({

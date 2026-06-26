@@ -52,33 +52,31 @@
 </template>
 
 <script setup>
-import { ref, reactive, onBeforeUnmount } from 'vue'
+import { ref, onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Library, Upload, Music, Play, Pause, Download, Plus, Clock, User, HardDrive, FileAudio, FolderOpen, X, Wand2 } from 'lucide-vue-next'
+import { fetchMaterials, uploadMaterial } from "../services/api.js"
 
-const audios = reactive([
-  { id:1, filename:"清晨鸟鸣环境音.mp3", format:"mp3", duration:32, fileSize:1280000, uploader:"音效达人", src:null },
-  { id:2, filename:"钢琴背景音乐.wav", format:"wav", duration:120, fileSize:5200000, uploader:"音乐创作人", src:null },
-  { id:3, filename:"城市街道白噪音.ogg", format:"ogg", duration:45, fileSize:2100000, uploader:"匿名用户", src:null },
-  { id:4, filename:"叙事旁白样本.flac", format:"flac", duration:18, fileSize:3800000, uploader:"配音师小王", src:null },
-  { id:5, filename:"海浪声音效.m4a", format:"m4a", duration:60, fileSize:1500000, uploader:"自然录音师", src:null },
-])
+const audios = ref([])
 
 const router = useRouter()
 const fileInputRef=ref(null),audioRef=ref(null),playingId=ref(null),currentAudio=ref(null)
 const isPlaying=ref(false),currentTime=ref(0),duration=ref(0),progressPercent=ref(0)
 
 function triggerUpload(){fileInputRef.value?.click()}
-function handleFilesSelected(e){const files=e.target.files;if(!files||!files.length)return;for(const f of files){const url=URL.createObjectURL(f);const ext=f.name.split(".").pop()?.toLowerCase()||"unknown";audios.push({id:Date.now()+Math.random(),filename:f.name,format:ext,duration:0,fileSize:f.size,uploader:"我",src:url})};e.target.value=""}
-function togglePreview(audio){if(playingId.value===audio.id){if(isPlaying.value){audioRef.value?.pause();isPlaying.value=false}else{audioRef.value?.play();isPlaying.value=true};return};stopPreview();currentAudio.value=audio;playingId.value=audio.id;const el=audioRef.value;if(!el)return;if(audio.src){el.src=audio.src}else{el.src="";return};el.load();el.play().then(()=>{isPlaying.value=true}).catch(()=>{isPlaying.value=false})}
+onMounted(loadMaterials)
+
+async function loadMaterials(){audios.value=await fetchMaterials("bgm")}
+async function handleFilesSelected(e){const files=e.target.files;if(!files||!files.length)return;for(const f of files){const formData=new FormData();formData.append("file",f);audios.value.push(await uploadMaterial(formData))};e.target.value=""}
+function togglePreview(audio){if(playingId.value===audio.id){if(isPlaying.value){audioRef.value?.pause();isPlaying.value=false}else{audioRef.value?.play();isPlaying.value=true};return};stopPreview();currentAudio.value=audio;playingId.value=audio.id;const el=audioRef.value;if(!el)return;if(audio.audioUrl){el.src=audio.audioUrl}else{el.src="";return};el.load();el.play().then(()=>{isPlaying.value=true}).catch(()=>{isPlaying.value=false})}
 function stopPreview(){const el=audioRef.value;if(el){el.pause();el.currentTime=0};playingId.value=null;currentAudio.value=null;isPlaying.value=false;currentTime.value=0;duration.value=0;progressPercent.value=0}
 function onTimeUpdate(){if(audioRef.value){currentTime.value=audioRef.value.currentTime;if(duration.value>0)progressPercent.value=(currentTime.value/duration.value)*100}}
 function onLoadedMetadata(){if(audioRef.value&&audioRef.value.duration){duration.value=audioRef.value.duration;if(currentAudio.value&&currentAudio.value.duration===0)currentAudio.value.duration=Math.round(audioRef.value.duration)}}
 function onEnded(){isPlaying.value=false;currentTime.value=0;progressPercent.value=0}
 function seekAudio(e){if(!audioRef.value||!duration.value)return;const rect=e.currentTarget.getBoundingClientRect();audioRef.value.currentTime=((e.clientX-rect.left)/rect.width)*duration.value}
 function addToLibrary(audio){alert("已将 "+audio.filename+" 添加到你的音色库")}
-function sendToExtract(audio){localStorage.setItem("extractFile",JSON.stringify({name:audio.filename,format:audio.format,src:audio.src}));router.push("/extract")}
-function downloadAudio(audio){if(audio.src){const a=document.createElement("a");a.href=audio.src;a.download=audio.filename;a.click()}else{alert("下载功能需要后端支持")}}
+function sendToExtract(audio){localStorage.setItem("extractFile",JSON.stringify({name:audio.filename,format:audio.format,src:audio.audioUrl}));router.push("/extract")}
+function downloadAudio(audio){if(audio.audioUrl){const a=document.createElement("a");a.href=audio.audioUrl;a.download=audio.filename;a.click()}else{alert("下载功能需要后端支持")}}
 function formatDuration(s){if(!s||s<=0)return"--:--";const m=Math.floor(s/60);return m+":"+String(Math.floor(s%60)).padStart(2,"0")}
 function formatTime(s){if(!s||s<=0)return"0:00";const m=Math.floor(s/60);return m+":"+String(Math.floor(s%60)).padStart(2,"0")}
 function formatSize(b){if(!b)return"";if(b<1024)return b+" B";if(b<1048576)return(b/1024).toFixed(1)+" KB";return(b/1048576).toFixed(1)+" MB"}

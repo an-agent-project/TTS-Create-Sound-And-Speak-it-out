@@ -85,3 +85,24 @@ class VoicePreviewAudio(Base):
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
     provider_profile = relationship("VoiceProviderProfile", back_populates="preview_audios")
+
+
+class Material(Base):
+    __tablename__ = "materials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    material_key = Column(String(100), nullable=False, unique=True, index=True)
+    filename = Column(String(255), nullable=False)
+    title = Column(String(100), nullable=False)
+    category = Column(String(50), nullable=False, default="bgm", index=True)
+    format = Column(String(10), nullable=False)
+    duration_seconds = Column(Integer, nullable=False, default=0)
+    file_size_bytes = Column(Integer, nullable=False, default=0)
+    uploader = Column(String(100), nullable=False, default="系统素材")
+    audio_path = Column(String(500), nullable=False)
+    audio_url = Column(String(500), nullable=False)
+    license = Column(String(100))
+    source_url = Column(String(500))
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())

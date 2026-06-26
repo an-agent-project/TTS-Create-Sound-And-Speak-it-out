@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.auth import router as auth_router
+from app.api.materials import router as materials_router
 from app.api.tts import router as tts_router
 from app.api.voices import router as voices_router
 from app.api.voice_clones import router as voice_clones_router
@@ -14,9 +15,10 @@ from app.crud import tts_preview as tts_preview_crud
 from app.data import SCENE_BY_ID, SCENES, VOICE_BY_ID
 from app.database import engine, get_db
 from app.models import Base
+from app.models import Material
 from sqlalchemy.orm import Session
 from app.services.text_processing import preprocess_text
-from app.services.tts import synthesize_segments_to_file
+from app.services.tts import mix_bgm_to_file, synthesize_segments_to_file
 from app.storage import MEDIA_DIR, delete_work, ensure_storage, get_work, list_works, save_work
 from app.work_schemas import GenerateRequest, PreprocessRequest, Work
 
@@ -43,6 +45,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
 app.include_router(auth_router)
+app.include_router(materials_router)
 app.include_router(tts_router)
 app.include_router(voices_router)
 app.include_router(voice_clones_router)
@@ -83,20 +86,27 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
 
     work_id = uuid4().hex
     output_path = MEDIA_DIR / f"{work_id}.mp3"
+    dry_output_path = MEDIA_DIR / f"{work_id}-voice.mp3"
     try:
-        duration = await synthesize_segments_to_file(
+        await synthesize_segments_to_file(
             segments=processed.segments,
             voice=payload.voiceId,
             speed=payload.speed,
             pitch=payload.pitch,
             emotion=payload.emotion,
-            output_path=output_path,
+            output_path=dry_output_path,
             provider=provider,
         )
+        bgm_path = _find_bgm_path(db, payload.bgmType)
+        duration = round(await mix_bgm_to_file(dry_output_path, bgm_path, output_path, payload.bgmVolume))
     except Exception as exc:
         if output_path.exists():
             output_path.unlink()
+        if dry_output_path.exists():
+            dry_output_path.unlink()
         raise HTTPException(status_code=502, detail=f"TTS synthesis failed: {exc}") from exc
+    finally:
+        dry_output_path.unlink(missing_ok=True)
 
     scene_name = scene["name"] if scene else "通用"
     work = Work(
@@ -143,3 +153,13 @@ def _build_title(scene_name: str, text: str) -> str:
     excerpt = text[:20].strip()
     suffix = "..." if len(text) > 20 else ""
     return f"《{scene_name}》{excerpt}{suffix}"
+
+
+def _find_bgm_path(db: Session, bgm_type: str) -> Path | None:
+    if not bgm_type or bgm_type == "none":
+        return None
+    material = db.query(Material).filter(Material.material_key == bgm_type, Material.is_active.is_(True)).first()
+    if not material:
+        return None
+    path = Path(material.audio_path)
+    return path if path.exists() else None

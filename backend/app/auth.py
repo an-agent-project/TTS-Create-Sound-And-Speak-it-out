@@ -7,8 +7,11 @@ from fastapi import Depends, Header, HTTPException, status
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
+from app.env import load_env
 from app.database import get_db
 from app.models import User
+
+load_env()
 
 SECRET_KEY = os.getenv("JWT_SECRET", "tts-podcast-dev-secret-change-in-production")
 ALGORITHM = "HS256"

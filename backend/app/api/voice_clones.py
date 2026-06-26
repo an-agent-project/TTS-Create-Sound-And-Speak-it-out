@@ -38,7 +38,7 @@ async def create_voice_clone(
     if len(audio_bytes) > MAX_CLONE_AUDIO_BYTES:
         raise HTTPException(status_code=400, detail="audio file is too large")
 
-    preferred_name = _normalize_preferred_name(preferredName or name)
+    preferred_name = _normalize_preferred_name(preferredName)
     try:
         cloned_voice_id = await create_qwen_voice_clone(
             audio_bytes=audio_bytes,
@@ -80,7 +80,7 @@ async def create_voice_clone(
     return voice
 
 
-def _normalize_preferred_name(value: str) -> str:
-    cleaned = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in value.strip())
+def _normalize_preferred_name(value: str | None) -> str:
+    cleaned = "".join(ch if ch.isascii() and (ch.isalnum() or ch in {"_", "-"}) else "_" for ch in (value or "").strip())
     cleaned = cleaned.strip("_-")
     return (cleaned or f"voice_{uuid4().hex[:8]}")[:64]

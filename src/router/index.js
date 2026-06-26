@@ -21,6 +21,7 @@ const routes = [
     path: "/extract",
     name: "Extraction",
     component: () => import("../views/ExtractionPage.vue"),
+    meta: { requiresAuth: true },
   },
   {
     path: "/voices",

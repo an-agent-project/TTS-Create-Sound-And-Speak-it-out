@@ -5,6 +5,10 @@ from pathlib import Path
 
 import httpx
 
+from app.env import load_env
+
+load_env()
+
 BAILIAN_TTS_PROVIDER = "bailian_tts"
 BAILIAN_TTS_DEFAULT_MODEL = "qwen3-tts-flash"
 BAILIAN_TTS_DEFAULT_VOICE = "Cherry"
