@@ -1,4 +1,6 @@
+import tempfile
 from uuid import uuid4
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.exc import IntegrityError
@@ -13,6 +15,7 @@ from app.services.bailian_tts import (
     BAILIAN_VOICE_CLONE_TARGET_MODEL,
     create_qwen_voice_clone,
 )
+from app.services.tts import _media_command, _run_command
 
 router = APIRouter(prefix="/api/voice-clones", tags=["voice-clones"])
 
@@ -35,6 +38,10 @@ async def create_voice_clone(
     audio_bytes = await file.read()
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="audio file cannot be empty")
+    try:
+        audio_bytes = await _trim_clone_audio_to_30s(audio_bytes, file.filename)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=f"audio trimming failed: {exc}") from exc
     if len(audio_bytes) > MAX_CLONE_AUDIO_BYTES:
         raise HTTPException(status_code=400, detail="audio file is too large")
 
@@ -84,3 +91,28 @@ def _normalize_preferred_name(value: str | None) -> str:
     cleaned = "".join(ch if ch.isascii() and (ch.isalnum() or ch in {"_", "-"}) else "_" for ch in (value or "").strip())
     cleaned = cleaned.strip("_-")
     return (cleaned or f"voice_{uuid4().hex[:8]}")[:64]
+
+
+async def _trim_clone_audio_to_30s(audio_bytes: bytes, filename: str | None) -> bytes:
+    ffmpeg = _media_command("ffmpeg")
+    if not ffmpeg:
+        raise RuntimeError("ffmpeg is required")
+
+    suffix = Path(filename or "voice.mp3").suffix or ".mp3"
+    with tempfile.TemporaryDirectory() as tmp:
+        input_path = Path(tmp) / f"input{suffix}"
+        output_path = Path(tmp) / f"output{suffix}"
+        input_path.write_bytes(audio_bytes)
+        await _run_command(
+            ffmpeg,
+            "-y",
+            "-i",
+            str(input_path),
+            "-t",
+            "30",
+            "-vn",
+            "-c",
+            "copy",
+            str(output_path),
+        )
+        return output_path.read_bytes()

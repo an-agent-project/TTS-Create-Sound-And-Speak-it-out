@@ -1,7 +1,8 @@
-﻿<template>
+<template>
   <div class="page">
     <h2>音色管理</h2>
-    <table v-if="voices.length" class="table">
+    <p v-if="loadError" class="load-error">{{ loadError }}</p>
+    <table v-else-if="voices.length" class="table">
       <thead><tr><th>ID</th><th>音色名</th><th>性别</th><th>分类</th><th>供应商</th><th>状态</th><th>操作</th></tr></thead>
       <tbody>
         <tr v-for="v in voices" :key="v.id" :class="{ inactive: !v.isActive }">
@@ -45,10 +46,18 @@ const voices = ref([])
 const editingId = ref(null)
 const editName = ref('')
 const editCat = ref('')
+const loadError = ref('')
 
 async function load() {
+  loadError.value = ''
   const resp = await fetch(`/api/admin/voices?pageSize=100`, { headers: store.authHeaders() })
-  const data = await resp.json(); voices.value = data.items || []
+  const data = await resp.json().catch(() => ({}))
+  if (!resp.ok) {
+    voices.value = []
+    loadError.value = data.detail || data.message || `加载失败：${resp.status}`
+    return
+  }
+  voices.value = data.items || []
 }
 
 function startEdit(v) {
@@ -98,4 +107,5 @@ tr.inactive{opacity:.45}
 .btn-sm.ok{background:#c6f6d5;color:#22543d}
 .btn-sm.danger{background:#fed7d7;color:#9b2c2c}
 .empty{color:var(--text-secondary);font-size:14px}
+.load-error{padding:12px 14px;border:1px solid #feb2b2;border-radius:var(--radius-sm);background:#fff5f5;color:#c53030;font-size:13px}
 </style>

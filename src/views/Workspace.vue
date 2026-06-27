@@ -242,6 +242,10 @@ onMounted(async () => {
       ...voice,
       tags: voice.tags || [voice.style, voice.category].filter(Boolean),
     }));
+    if (selectedVoice.value && !availableVoices.value.some((voice) => voice.id === selectedVoice.value.id)) {
+      selectedVoice.value = null;
+      store.selectedVoice = null;
+    }
     bgmMaterials.value = await fetchMaterials("bgm");
   } catch (error) {
     voiceLoadError.value = `音色列表加载失败：${error.message}`;

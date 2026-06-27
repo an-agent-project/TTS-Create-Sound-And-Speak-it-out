@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="page">
     <h2>服务状态</h2>
     <div class="status-grid" v-if="data">

@@ -54,10 +54,18 @@ export async function fetchVoices() {
 
     return {
       ...voice,
+      dbId: voice.id,
       id: voice.voiceKey || voice.id,
       name: voice.displayName || voice.name,
       providerVoiceId: provider?.providerVoiceId,
     };
+  });
+}
+
+export function deleteVoiceById(id) {
+  return request(`/voices/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
   });
 }
 

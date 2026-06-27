@@ -1,7 +1,8 @@
-﻿<template>
+<template>
   <div class="page">
     <h2>作品管理</h2>
-    <div class="card-grid" v-if="works.length">
+    <p v-if="loadError" class="load-error">{{ loadError }}</p>
+    <div class="card-grid" v-else-if="works.length">
       <div v-for="w in works" :key="w.id" class="work-card">
         <div class="work-title">{{ w.title }}</div>
         <div class="work-meta">{{ w.voiceName }} · {{ fmtDuration(w.duration) }} · {{ fmtDate(w.createdAt) }}</div>
@@ -18,10 +19,18 @@ import { ref, onMounted } from 'vue'
 import { useAppStore } from '../../stores/app.js'
 const store = useAppStore()
 const works = ref([])
+const loadError = ref('')
 
 async function load() {
+  loadError.value = ''
   const resp = await fetch(`/api/admin/works?pageSize=100`, { headers: store.authHeaders() })
-  const data = await resp.json(); works.value = data.items || []
+  const data = await resp.json().catch(() => ({}))
+  if (!resp.ok) {
+    works.value = []
+    loadError.value = data.detail || data.message || `加载失败：${resp.status}`
+    return
+  }
+  works.value = data.items || []
 }
 
 async function removeWork(id) {
@@ -55,4 +64,5 @@ onMounted(load)
 .btn-sm{padding:4px 16px;border-radius:var(--radius-sm);font-size:12px;border:none;cursor:pointer}
 .btn-sm.danger{background:#fed7d7;color:#9b2c2c}
 .empty{color:var(--text-secondary);font-size:14px}
+.load-error{padding:12px 14px;border:1px solid #feb2b2;border-radius:var(--radius-sm);background:#fff5f5;color:#c53030;font-size:13px}
 </style>

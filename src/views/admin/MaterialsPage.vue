@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="page">
     <h2>素材管理</h2>
     <div class="filters">
@@ -10,7 +10,8 @@
       <input v-model="uploader" placeholder="按上传者筛选..." @keyup.enter="load" class="filter-input" />
       <label class="inactive-toggle"><input type="checkbox" v-model="includeInactive" @change="load" /> 含已删除</label>
     </div>
-    <table v-if="materials.length" class="table">
+    <p v-if="loadError" class="load-error">{{ loadError }}</p>
+    <table v-else-if="materials.length" class="table">
       <thead><tr><th>ID</th><th>标题</th><th>分类</th><th>上传者</th><th>时间</th><th>状态</th><th>操作</th></tr></thead>
       <tbody>
         <tr v-for="m in materials" :key="m.id" :class="{ inactive: !m.isActive }">
@@ -48,16 +49,26 @@ const includeInactive = ref(false)
 const pageNum = ref(1)
 const pageSize = ref(15)
 const totalItems = ref(0)
+const loadError = ref('')
 const totalPages = computed(() => Math.ceil(totalItems.value / pageSize.value))
 
 async function load() {
+  loadError.value = ''
   const p = new URLSearchParams()
   if (category.value) p.set('category', category.value)
   if (uploader.value) p.set('uploader', uploader.value)
   p.set('page', String(pageNum.value)); p.set('pageSize', String(pageSize.value));
   if (includeInactive.value) p.set('include_inactive', 'true')
   const resp = await fetch(`/api/admin/materials?${p}`, { headers: store.authHeaders() })
-  const data = await resp.json(); materials.value = data.items || []; totalItems.value = data.total || 0
+  const data = await resp.json().catch(() => ({}))
+  if (!resp.ok) {
+    materials.value = []
+    totalItems.value = 0
+    loadError.value = data.detail || data.message || `加载失败：${resp.status}`
+    return
+  }
+  materials.value = data.items || []
+  totalItems.value = data.total || 0
 }
 
 async function softRemove(id) {
@@ -99,8 +110,8 @@ tr.inactive{opacity:.45}
 .btn-sm.warn{background:#fefcbf;color:#975a16}
 .btn-sm.danger{background:#fed7d7;color:#9b2c2c}
 .empty{color:var(--text-secondary);font-size:14px}
-</style>
-
+.load-error{padding:12px 14px;border:1px solid #feb2b2;border-radius:var(--radius-sm);background:#fff5f5;color:#c53030;font-size:13px}
 .pagination{display:flex;align-items:center;gap:12px;margin-top:16px;font-size:13px;color:var(--text-secondary)}
 .pagination button{padding:6px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);cursor:pointer}
 .pagination button:disabled{opacity:.4;cursor:default}
+</style>

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="page">
     <h2>举报审核</h2>
     <div class="tabs">
