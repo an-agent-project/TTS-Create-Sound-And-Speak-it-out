@@ -45,3 +45,21 @@ def test_database_design_document_exists_and_explains_storage_boundary():
     assert "MySQL 不直接保存音频二进制" in doc
     assert "Edge-TTS" in doc
     assert "Qwen-TTS" in doc
+
+
+def test_database_schema_seeds_default_admin_user():
+    sql = SCHEMA_PATH.read_text(encoding="utf-8")
+
+    assert "INSERT INTO users" in sql
+    assert "'admin'" in sql
+    assert "'admin@example.local'" in sql
+    assert "role," in sql
+    assert "role = 'admin'" in sql
+    assert "ON DUPLICATE KEY UPDATE" in sql
+    assert "$2b$12$" in sql
+
+
+def test_database_schema_allows_large_user_avatar_data_urls():
+    sql = SCHEMA_PATH.read_text(encoding="utf-8").lower()
+
+    assert "avatar mediumtext" in sql

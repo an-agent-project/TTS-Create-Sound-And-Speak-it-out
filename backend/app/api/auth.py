@@ -17,6 +17,7 @@ from app.schemas import (
     ChangePasswordRequest,
     LoginRequest,
     RegisterRequest,
+    ResetPasswordRequest,
     SendCodeRequest,
     SendCodeResponse,
     TokenResponse,
@@ -126,6 +127,23 @@ def update_me(
     db.refresh(current_user)
     return _user_to_read(current_user)
 
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+def reset_password(payload: ResetPasswordRequest, db: Annotated[Session, Depends(get_db)]) -> dict:
+    user = auth_crud.get_user_by_email(db, payload.email)
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="email is not registered",
+        )
+    if not auth_crud.verify_code(payload.email, payload.code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="verification code is invalid or expired",
+        )
+    user.password_hash = hash_password(payload.new_password)
+    db.commit()
+    return {"detail": "password reset successfully"}
 
 @router.post("/change-password", status_code=status.HTTP_200_OK)
 def change_password(

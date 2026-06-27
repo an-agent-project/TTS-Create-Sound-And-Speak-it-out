@@ -44,8 +44,13 @@
         <button class="btn btn-outline btn-sm" @click.stop="toggleEdit">
           <Settings2 :size="14" /> {{ editing ? "取消" : "编辑标签" }}
         </button>
-        <button class="btn btn-danger btn-sm" @click.stop="$emit('deleteVoice')">
-          <Trash2 :size="14" /> 删除
+        <button
+          class="btn btn-danger btn-sm"
+          :disabled="voice.isSystemVoice"
+          title="系统默认音色不可删除"
+          @click.stop="!voice.isSystemVoice && $emit('deleteVoice')"
+        >
+          <Trash2 :size="14" /> {{ voice.isSystemVoice ? "默认音色" : "删除" }}
         </button>
       </div>
     </div>
@@ -111,6 +116,7 @@ function addTag() {
 
 <style scoped>
 .voice-card { position: relative; padding: 20px; }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
 .voice-card.featured { border-color: var(--primary); background: linear-gradient(135deg, #fff 0%, #eef2ff 100%); }
 .voice-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
 .voice-avatar { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }

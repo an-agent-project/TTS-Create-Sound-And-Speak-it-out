@@ -61,7 +61,7 @@
           @toggle-favorite="store.toggleFavoriteVoice(voice.id)"
           @preview="previewVoice = voice"
           @select="goToWorkspace(voice)"
-          @delete-voice="deleteVoice(voice.id)"
+          @delete-voice="deleteVoice(voice)"
           @update-tags="(tags) => updateVoiceTags(voice.id, tags)"
         />
       </div>
@@ -92,7 +92,7 @@ import { useRouter } from "vue-router";
 import { Baby, Drama, Search, Settings2, Star, User } from "lucide-vue-next";
 import VoiceCard from "../components/VoiceCard.vue";
 import VoicePreview from "../components/VoicePreview.vue";
-import { fetchVoices } from "../services/api.js";
+import { deleteVoiceById, fetchVoices } from "../services/api.js";
 import { useAppStore } from "../stores/app.js";
 
 const router = useRouter();
@@ -149,8 +149,17 @@ const filteredVoices = computed(() => {
   return voices;
 });
 
-function deleteVoice(id) {
-  allVoices.value = allVoices.value.filter((voice) => voice.id !== id);
+async function deleteVoice(voice) {
+  if (voice.isSystemVoice) {
+    loadError.value = "系统默认音色不可删除";
+    return;
+  }
+  try {
+    await deleteVoiceById(voice.dbId);
+    allVoices.value = allVoices.value.filter((item) => item.dbId !== voice.dbId);
+  } catch (error) {
+    loadError.value = error.message || "删除音色失败";
+  }
 }
 
 function updateVoiceTags(id, tags) {

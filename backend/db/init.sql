@@ -11,15 +11,36 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NOT NULL,
   email VARCHAR(255) NULL,
   phone VARCHAR(20) NULL,
-  avatar TEXT NULL,
+  avatar MEDIUMTEXT NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  role VARCHAR(20) NOT NULL DEFAULT user,
+  role VARCHAR(20) NOT NULL DEFAULT 'user',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_user_username (username),
   UNIQUE KEY uk_user_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Development default admin account.
+-- Username: admin
+-- Password: Admin@123456
+-- Change this password after first login in non-local environments.
+INSERT INTO users (
+  username,
+  password_hash,
+  email,
+  role,
+  is_active
+) VALUES (
+  'admin',
+  '$2b$12$mtsTFkXD6Ru1o9Dd1HPbl.9BTapzSjG9/j9P4i/upHmyWKrXPFaUS',
+  'admin@example.local',
+  'admin',
+  TRUE
+)
+ON DUPLICATE KEY UPDATE
+  role = 'admin',
+  is_active = TRUE,
+  email = VALUES(email);
 
 CREATE TABLE IF NOT EXISTS voices (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -31,7 +52,7 @@ CREATE TABLE IF NOT EXISTS voices (
   description VARCHAR(255) NULL,
   is_recommended BOOLEAN NOT NULL DEFAULT FALSE,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  role VARCHAR(20) NOT NULL DEFAULT user,
+  role VARCHAR(20) NOT NULL DEFAULT 'user',
   owner_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -56,7 +77,7 @@ CREATE TABLE IF NOT EXISTS voice_provider_profiles (
   supports_mp3 BOOLEAN NOT NULL DEFAULT TRUE,
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  role VARCHAR(20) NOT NULL DEFAULT user,
+  role VARCHAR(20) NOT NULL DEFAULT 'user',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -112,7 +133,7 @@ CREATE TABLE IF NOT EXISTS materials (
   license VARCHAR(100) NULL,
   source_url VARCHAR(500) NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  role VARCHAR(20) NOT NULL DEFAULT user,
+  role VARCHAR(20) NOT NULL DEFAULT 'user',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -127,7 +148,7 @@ CREATE TABLE IF NOT EXISTS material_reports (
   reporter_id BIGINT UNSIGNED NOT NULL,
   reason_category VARCHAR(50) NOT NULL,
   reason_detail VARCHAR(500) NULL,
-  status VARCHAR(20) NOT NULL DEFAULT ''pending'',
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
   reviewed_by BIGINT UNSIGNED NULL,
   review_note VARCHAR(500) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

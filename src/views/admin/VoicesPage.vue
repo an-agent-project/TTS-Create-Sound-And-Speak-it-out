@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="page">
     <h2>音色管理</h2>
     <table v-if="voices.length" class="table">
@@ -59,7 +59,7 @@ function startEdit(v) {
 
 async function saveEdit(id) {
   const p = new URLSearchParams()
-  if (editName.value) p.set('display_name', editName.value)
+  if (editName.value) p.set('displayName', editName.value)
   if (editCat.value) p.set('category', editCat.value)
   await fetch(`/api/admin/voices/${id}?${p}`, { method: 'PUT', headers: store.authHeaders() })
   editingId.value = null
@@ -68,7 +68,7 @@ async function saveEdit(id) {
 
 async function toggleVoice(v) {
   const p = new URLSearchParams()
-  p.set('is_active', String(!v.isActive))
+  p.set('isActive', String(!v.isActive))
   await fetch(`/api/admin/voices/${v.id}?${p}`, { method: 'PUT', headers: store.authHeaders() })
   await load()
 }

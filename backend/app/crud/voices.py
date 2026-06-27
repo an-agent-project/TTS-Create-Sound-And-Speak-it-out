@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from sqlalchemy.orm import Session, selectinload
 
 from app import models
@@ -104,16 +106,20 @@ def update_voice(
     return get_voice(db, voice.id, user_id=user_id)
 
 
-def soft_delete_voice(
+def hard_delete_voice(
     db: Session,
     voice: models.Voice,
     user_id: int,
 ) -> bool:
-    """Soft-delete a voice. Only permitted for voices owned by `user_id`. Returns success."""
+    """Hard-delete a voice owned by `user_id`, including provider profiles and preview cache rows."""
     if voice.owner_id != user_id:
         return False
-    voice.is_active = False
+
     for provider in voice.providers:
-        provider.is_active = False
+        for preview in list(provider.preview_audios):
+            Path(preview.audio_path).unlink(missing_ok=True)
+            db.delete(preview)
+        db.delete(provider)
+    db.delete(voice)
     db.commit()
     return True

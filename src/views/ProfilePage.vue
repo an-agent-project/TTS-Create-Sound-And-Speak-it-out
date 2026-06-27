@@ -24,6 +24,7 @@
             @change="handleFileChange"
           />
           <div class="avatar-label">点击更换头像</div>
+          <div v-if="avatarError" class="avatar-error">{{ avatarError }}</div>
         </div>
         <div class="account-info">
           <h2 class="account-name">{{ store.user.username || '用户' }}</h2>
@@ -252,6 +253,7 @@ const editInput = ref(null);
 const deleteTarget = ref(null);
 const previewWork = ref(null);
 const isPlaying = ref(false);
+const avatarError = ref("");
 
 const editingField = ref(null);   // null | 'email' | 'phone'
 const editValue = ref("");
@@ -278,16 +280,47 @@ function triggerFileInput() {
   fileInput.value?.click();
 }
 
-function handleFileChange(e) {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    store.updateMe({ avatar: reader.result });
-  };
-  reader.readAsDataURL(file);
+function compressAvatarFile(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const maxSize = 256;
+      const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        URL.revokeObjectURL(image.src);
+        reject(new Error("头像处理失败"));
+        return;
+      }
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const avatar = canvas.toDataURL("image/jpeg", 0.82);
+      URL.revokeObjectURL(image.src);
+      resolve(avatar);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(image.src);
+      reject(new Error("头像文件读取失败"));
+    };
+    image.src = URL.createObjectURL(file);
+  });
 }
 
+async function handleFileChange(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  avatarError.value = "";
+  try {
+    const avatar = await compressAvatarFile(file);
+    await store.updateMe({ avatar });
+  } catch (error) {
+    avatarError.value = error.message || "头像保存失败";
+  } finally {
+    e.target.value = "";
+  }
+}
 async function startEdit(field) {
   editingField.value = field;
   editValue.value = store.user[field] || "";
@@ -459,6 +492,14 @@ function doDelete() {
 .avatar-label {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.avatar-error {
+  margin-top: 6px;
+  color: #c53030;
+  font-size: 12px;
+  max-width: 140px;
+  text-align: center;
 }
 
 .account-info {

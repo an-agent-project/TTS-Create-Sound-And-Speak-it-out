@@ -41,6 +41,19 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+export function sendAuthCode(email) {
+  return request("/auth/send-code", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function resetPassword(payload) {
+  return request("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
 export function fetchScenes() {
   return request("/scenes");
 }
@@ -55,8 +68,10 @@ export async function fetchVoices() {
     return {
       ...voice,
       id: voice.voiceKey || voice.id,
+      dbId: voice.id,
       name: voice.displayName || voice.name,
       providerVoiceId: provider?.providerVoiceId,
+      isSystemVoice: voice.ownerId == null,
     };
   });
 }
@@ -104,6 +119,12 @@ export async function createVoiceClone(formData) {
   return response.json();
 }
 
+export function deleteVoiceById(id) {
+  return request(`/voices/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+}
 export function preprocessText(content) {
   return request("/text/preprocess", {
     method: "POST",

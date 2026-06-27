@@ -182,3 +182,80 @@ def test_update_me_changes_profile_fields():
     )
     assert me.json()["phone"] == "13800138000"
     assert me.json()["email"] == "heidi@example.com"
+
+
+def test_update_me_persists_avatar_for_refresh():
+    client = make_client()
+    reg = client.post(
+        "/api/auth/register",
+        json={"username": "avatar-user", "password": "pw123456"},
+    )
+    token = reg.json()["access_token"]
+    avatar = "data:image/jpeg;base64," + "a" * 2048
+
+    resp = client.put(
+        "/api/auth/me",
+        json={"avatar": avatar},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["avatar"] == avatar
+
+    me = client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert me.status_code == 200
+    assert me.json()["avatar"] == avatar
+
+
+# ── Password Reset ────────────────────────────────────────────
+
+
+def test_reset_password_with_verification_code_allows_new_login():
+    client = make_client()
+    reg = client.post(
+        "/api/auth/register",
+        json={"username": "reset-user", "email": "reset@example.com", "password": "oldpass123"},
+    )
+    assert reg.status_code == 201, reg.text
+
+    code_resp = client.post("/api/auth/send-code", json={"email": "reset@example.com"})
+    assert code_resp.status_code == 200, code_resp.text
+    code = code_resp.json()["code"]
+
+    reset = client.post(
+        "/api/auth/reset-password",
+        json={"email": "reset@example.com", "code": code, "newPassword": "newpass123"},
+    )
+    assert reset.status_code == 200, reset.text
+    assert reset.json()["detail"] == "password reset successfully"
+
+    old_login = client.post(
+        "/api/auth/login",
+        json={"email": "reset@example.com", "password": "oldpass123"},
+    )
+    assert old_login.status_code == 401
+
+    new_login = client.post(
+        "/api/auth/login",
+        json={"email": "reset@example.com", "password": "newpass123"},
+    )
+    assert new_login.status_code == 200, new_login.text
+
+
+def test_reset_password_rejects_invalid_code():
+    client = make_client()
+    reg = client.post(
+        "/api/auth/register",
+        json={"username": "bad-reset", "email": "bad-reset@example.com", "password": "oldpass123"},
+    )
+    assert reg.status_code == 201, reg.text
+
+    reset = client.post(
+        "/api/auth/reset-password",
+        json={"email": "bad-reset@example.com", "code": "000000", "newPassword": "newpass123"},
+    )
+    assert reset.status_code == 400
+    assert "verification code" in reset.json()["detail"]
