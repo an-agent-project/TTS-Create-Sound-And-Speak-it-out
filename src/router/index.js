@@ -21,7 +21,11 @@ const routes = [
     path: "/extract",
     name: "Extraction",
     component: () => import("../views/ExtractionPage.vue"),
-    meta: { requiresAuth: true },
+  },
+  {
+    path: "/voices/public",
+    name: "PublicVoiceLibrary",
+    component: () => import("../views/PublicVoiceLibrary.vue"),
   },
   {
     path: "/voices",
@@ -92,21 +96,29 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem("auth_token");
+  const sessionUser = sessionStorage.getItem("user");
+
+  // Debug: log auth state
+  if (to.meta.requiresAuth || to.meta.requiresAdmin) {
+    console.log("[Router] navigating to", to.path, "| token:", !!token, "| sessionUser:", !!sessionUser);
+  }
 
   if (to.meta.requiresAuth) {
-    if (!token) {
+    if (!token && !sessionUser) {
+      console.log("[Router] NO AUTH -> redirect to /login");
       next("/login");
       return;
     }
   }
 
   if (to.meta.requiresAdmin) {
-    if (!token) {
+    if (!token && !sessionUser) {
+      console.log("[Router] NO AUTH (admin) -> redirect to /login");
       next("/login");
       return;
     }
     try {
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const user = JSON.parse(localStorage.getItem("user") || sessionUser || "{}");
       if (user.role !== "admin") {
         next("/");
         return;

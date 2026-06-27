@@ -10,7 +10,7 @@ async function request(path, options = {}) {
   });
 
   if (!response.ok) {
-    let message = `请求失败：${response.status}`;
+    let message = `请求失败，{response.status}`;
     try {
       const data = await response.json();
       message = data.detail || message;
@@ -73,7 +73,7 @@ export async function uploadMaterial(formData) {
     body: formData,
   });
   if (!response.ok) {
-    let message = `请求失败：${response.status}`;
+    let message = `请求失败，{response.status}`;
     try {
       const data = await response.json();
       message = errorMessage(data.detail, message);
@@ -92,7 +92,7 @@ export async function createVoiceClone(formData) {
     body: formData,
   });
   if (!response.ok) {
-    let message = `请求失败：${response.status}`;
+    let message = `请求失败，{response.status}`;
     try {
       const data = await response.json();
       message = errorMessage(data.detail, message);
@@ -131,5 +131,47 @@ export function fetchWorks() {
 export function deleteWorkById(id) {
   return request(`/works/${id}`, {
     method: "DELETE",
+  });
+}
+
+export async function fetchPublicVoices() {
+  const voices = await request("/voices?scope=public", { headers: authHeaders() });
+  return voices.map((voice) => {
+    const provider =
+      voice.providers?.find((item) => item.isActive && item.isDefault) ||
+      voice.providers?.find((item) => item.isActive);
+    return {
+      ...voice,
+      name: voice.displayName || voice.name,
+      providerVoiceId: provider?.providerVoiceId,
+    };
+  });
+}
+
+export async function fetchPersonalVoices() {
+  const voices = await request("/voices?scope=personal", { headers: authHeaders() });
+  return voices.map((voice) => {
+    const provider =
+      voice.providers?.find((item) => item.isActive && item.isDefault) ||
+      voice.providers?.find((item) => item.isActive);
+    return {
+      ...voice,
+      name: voice.displayName || voice.name,
+      providerVoiceId: provider?.providerVoiceId,
+    };
+  });
+}
+
+export async function cloneVoiceToPersonal(voiceId) {
+  return request("/voices/" + voiceId + "/clone", {
+    method: "POST",
+    headers: authHeaders(),
+  });
+}
+
+export async function deletePersonalVoice(voiceId) {
+  return request("/voices/" + voiceId, {
+    method: "DELETE",
+    headers: authHeaders(),
   });
 }

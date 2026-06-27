@@ -3,6 +3,17 @@
     <div class="editor-toolbar">
       <span class="toolbar-info">
         字数：<strong>{{ charCount }}</strong>
+        <span v-if="showLang" style="margin-left:12px;">
+          输出语言：
+          <select :value="outputLang" class="lang-select" @input="emit('update:outputLang', $event.target.value)">
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+          </select>
+        </span>
         {{ charCount > 500 ? '| 预计时长：约' + estimatedDuration + ' 分钟' : '' }}
       </span>
       <div class="toolbar-actions">
@@ -38,6 +49,8 @@ import { FileUp, Lightbulb } from 'lucide-vue-next'
 
 const props = defineProps({
   modelValue: { type: String, default: "" },
+  showLang: { type: Boolean, default: false },
+  outputLang: { type: String, default: "zh" },
   placeholder: { type: String, default: "请在此粘贴或输入您要配音的文本内容..." },
   showHint: { type: Boolean, default: true },
 });
@@ -121,6 +134,8 @@ function handleFileUpload(e) {
   color: var(--text-muted);
 }
 
+.lang-select { padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; background: var(--bg-card); color: var(--text); cursor: pointer; outline: none; }
+.lang-select:focus { border-color: var(--primary); }
 .editor-hint {
   display: flex;
   align-items: center;

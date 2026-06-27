@@ -1,6 +1,6 @@
-from typing import Annotated
+﻿from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,7 @@ from app.auth import get_current_user, get_optional_user
 from app.bailian_defaults import seed_bailian_default_voice
 from app.crud import voices as voice_crud
 from app.database import get_db
-from app.models import User
+from app.models import User, Voice
 from app.schemas import VoiceCreate, VoiceRead, VoiceUpdate
 
 router = APIRouter(prefix="/api/voices", tags=["voices"])
@@ -19,6 +19,7 @@ def list_voices(
     category: str | None = None,
     gender: str | None = None,
     recommendedOnly: bool = False,
+    scope: str | None = Query(default=None, description="'public' | 'personal'"),
     current_user: Annotated[User | None, Depends(get_optional_user)] = None,
     db: Session = Depends(get_db),
 ) -> list[VoiceRead]:
@@ -29,6 +30,7 @@ def list_voices(
         gender=gender,
         recommended_only=recommendedOnly,
         user_id=current_user.id if current_user else None,
+        scope=scope,
     )
 
 
@@ -57,6 +59,18 @@ def create_voice(
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="voice provider already exists") from exc
+
+
+@router.post("/{voice_id}/clone", response_model=VoiceRead)
+def clone_voice_to_personal(
+    voice_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+) -> VoiceRead:
+    source = db.query(Voice).filter(Voice.id == voice_id, Voice.owner_id.is_(None), Voice.is_active.is_(True)).first()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="public voice not found")
+    return voice_crud.clone_voice(db, source, owner_id=current_user.id)
 
 
 @router.put("/{voice_id}", response_model=VoiceRead)

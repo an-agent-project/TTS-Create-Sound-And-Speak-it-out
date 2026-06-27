@@ -12,6 +12,7 @@ class GenerateRequest(BaseModel):
     pitch: int = Field(0, ge=-50, le=50)
     emotion: Literal["calm", "happy", "sad", "excited"] = "calm"
     bgmType: str = "none"
+    outputLang: str = Field("zh", alias="outputLang")
     bgmVolume: int = Field(30, ge=0, le=100)
 
 

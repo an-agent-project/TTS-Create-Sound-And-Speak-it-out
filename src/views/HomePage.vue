@@ -144,7 +144,7 @@ const scenes = [
     name: "播客模式",
     iconComponent: Mic,
     description: "适合播客节目、脱口秀类内容，语气自然随性",
-    color: "#6366f1",
+    color: "var(--primary)",
     defaultSpeed: 1.0,
   },
   {
@@ -246,7 +246,7 @@ function goToWorkspace(sceneId) {
 .hero {
   text-align: center;
   padding: 60px 20px 40px;
-  background: linear-gradient(135deg, #eef2ff 0%, #faf5ff 100%);
+  background: linear-gradient(135deg, var(--primary-light) 0%, #faf5ff 100%);
   border-radius: var(--radius);
   margin-top: 24px;
 }

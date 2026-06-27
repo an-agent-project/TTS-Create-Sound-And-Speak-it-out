@@ -296,7 +296,7 @@ if (remembered) {
   height: 100px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid #eef2ff;
+  border: 3px solid var(--primary-light);
 }
 
 .close-btn {
@@ -346,7 +346,7 @@ if (remembered) {
 }
 
 .container input:focus {
-  border-color: #6366f1;
+  border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
@@ -371,7 +371,7 @@ if (remembered) {
 }
 
 .pwd-wrap .toggle-pwd:hover {
-  color: #6366f1;
+  color: var(--primary);
 }
 
 .container input::placeholder {
@@ -393,7 +393,7 @@ if (remembered) {
   flex-shrink: 0;
   min-width: 100px;
   padding: 8px 10px;
-  background: #6366f1;
+  background: var(--primary);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -405,7 +405,7 @@ if (remembered) {
 }
 
 .send-code-btn:hover:not(:disabled) {
-  background: #4f46e5;
+  background: var(--primary-hover);
 }
 
 .send-code-btn:disabled {
@@ -427,7 +427,7 @@ if (remembered) {
 .remember-me input[type="checkbox"] {
   width: auto;
   margin: 0;
-  accent-color: #6366f1;
+  accent-color: var(--primary);
 }
 
 .err-msg {
@@ -454,7 +454,7 @@ if (remembered) {
   width: 100%;
   padding: 12px;
   margin: 16px 0 8px;
-  background: #6366f1;
+  background: var(--primary);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -465,7 +465,7 @@ if (remembered) {
 }
 
 .login-btn:hover:not(:disabled) {
-  background: #4f46e5;
+  background: var(--primary-hover);
   opacity: 0.9;
 }
 
@@ -508,7 +508,7 @@ if (remembered) {
 }
 
 .footer-links a {
-  color: #6366f1;
+  color: var(--primary);
   text-decoration: none;
   font-weight: 500;
 }

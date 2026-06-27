@@ -74,6 +74,7 @@ export const useAppStore = defineStore("app", () => {
     isLoggedIn.value = Boolean(user.value.id);
     if (isLoggedIn.value) {
       localStorage.setItem("user", JSON.stringify(user.value));
+      sessionStorage.setItem("user", JSON.stringify(user.value));
     }
   }
 
@@ -128,6 +129,7 @@ export const useAppStore = defineStore("app", () => {
     saveToken("");
     user.value = emptyUser();
     localStorage.removeItem("user");
+    sessionStorage.removeItem("user");
   }
 
   async function fetchMe() {
@@ -135,11 +137,18 @@ export const useAppStore = defineStore("app", () => {
     try {
       const resp = await fetch("/api/auth/me", { headers: authHeaders() });
       if (!resp.ok) {
-        logout();
+        if (resp.status === 401) { logout(); return; }
+        // server error or network issue - keep token, try cache
+        const cached = localStorage.getItem("user");
+        if (cached) {
+          user.value = normalizeUser(JSON.parse(cached));
+          isLoggedIn.value = Boolean(user.value.id);
+        }
         return;
       }
       setUser(await resp.json());
     } catch {
+      // network error - keep token, try cache
       const cached = localStorage.getItem("user");
       if (cached) {
         user.value = normalizeUser(JSON.parse(cached));
@@ -186,6 +195,12 @@ export const useAppStore = defineStore("app", () => {
   const savedToken = localStorage.getItem(AUTH_TOKEN_KEY);
   if (savedToken) {
     token.value = savedToken;
+    isLoggedIn.value = true;
+    // Try to restore user from cache immediately
+    const cachedUser = localStorage.getItem("user") || sessionStorage.getItem("user");
+    if (cachedUser) {
+      try { user.value = normalizeUser(JSON.parse(cachedUser)); } catch {}
+    }
     fetchMe();
   }
 

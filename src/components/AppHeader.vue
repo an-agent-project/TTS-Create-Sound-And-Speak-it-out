@@ -5,6 +5,7 @@
       <nav class="nav-links">
         <router-link to="/workspace" class="nav-link"><Pen :size="16" /> 创作工作台</router-link>
         <router-link to="/extract" class="nav-link"><Wand2 :size="16" /> 音色提取台</router-link>
+        <router-link to="/voices/public" class="nav-link"><Library :size="16" /> 公共音色库</router-link>
         <router-link to="/voices" class="nav-link"><Drama :size="16" /> 个人音色库</router-link>
         <router-link to="/workshop" class="nav-link"><FolderOpen :size="16" /> 个人素材库</router-link>
       </nav>
@@ -37,7 +38,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Mic, Pen, Drama, FolderOpen, Wand2, ChevronDown, User, Shield } from 'lucide-vue-next'
+import { Mic, Pen, Drama, FolderOpen, Wand2, ChevronDown, User, Shield, Library } from 'lucide-vue-next'
 import { useAppStore } from "../stores/app.js";
 
 const store = useAppStore();

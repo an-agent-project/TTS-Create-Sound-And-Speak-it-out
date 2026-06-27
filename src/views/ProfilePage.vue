@@ -758,7 +758,7 @@ function doDelete() {
 }
 
 .pwd-wrap .toggle-pwd:hover {
-  color: #6366f1;
+  color: var(--primary);
 }
 
 @media (max-width: 640px) {

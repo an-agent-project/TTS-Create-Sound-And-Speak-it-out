@@ -92,6 +92,7 @@ class VoiceRead(VoiceBase):
     id: int
     is_active: bool = Field(alias="isActive")
     owner_id: int | None = Field(default=None, alias="ownerId")
+    source_voice_id: int | None = Field(default=None, alias="sourceVoiceId")
     providers: list[VoiceProviderProfileRead] = Field(default_factory=list)
 
 
