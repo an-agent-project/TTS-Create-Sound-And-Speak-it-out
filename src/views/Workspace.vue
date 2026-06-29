@@ -58,6 +58,9 @@
                   <div class="voice-option-meta">
                     <span class="tag tag-primary">{{ voice.style }}</span>
                     <span class="tag tag-success">{{ voice.category }}</span>
+                    <span class="tag" :class="emotionPowerMeta(voice).className">
+                      情感{{ emotionPowerMeta(voice).label }}
+                    </span>
                   </div>
                 </div>
                 <button class="btn btn-secondary btn-sm" @click.stop="previewVoice = voice">
@@ -111,6 +114,25 @@
                   <span>{{ em.label }}</span>
                 </button>
               </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">情感强度</label>
+              <div class="intensity-grid">
+                <button
+                  v-for="item in emotionIntensities"
+                  :key="item.value"
+                  class="intensity-btn"
+                  :class="{ active: settings.emotionIntensity === item.value }"
+                  @click="settings.emotionIntensity = item.value"
+                >
+                  {{ item.label }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="emotionWarning" class="emotion-warning">
+              {{ emotionWarning }}
             </div>
 
             <div class="form-group">
@@ -205,10 +227,54 @@ import {
 const store = useAppStore();
 
 const scenes = [
-  { id: "podcast", name: "播客模式", iconComponent: Mic, description: "适合播客节目、脱口秀", color: "#6366f1", defaultSpeed: 1.0 },
-  { id: "lecture", name: "知识讲解", iconComponent: BookOpen, description: "适合课程录制、知识分享", color: "#10b981", defaultSpeed: 0.9 },
-  { id: "storytelling", name: "故事叙述", iconComponent: Library, description: "适合有声小说、儿童故事", color: "#f59e0b", defaultSpeed: 0.85 },
-  { id: "emotional", name: "情感朗读", iconComponent: Heart, description: "适合散文诗歌、情感表达", color: "#ef4444", defaultSpeed: 0.8 },
+  {
+    id: "podcast",
+    name: "播客模式",
+    iconComponent: Mic,
+    description: "适合播客节目、脱口秀",
+    color: "#6366f1",
+    defaultSpeed: 1.0,
+    defaultPitch: 0,
+    defaultEmotion: "happy",
+    defaultIntensity: "normal",
+    preferredVoiceTerms: ["播客", "磁性", "活力", "阳光", "亲切"],
+  },
+  {
+    id: "lecture",
+    name: "知识讲解",
+    iconComponent: BookOpen,
+    description: "适合课程录制、知识分享",
+    color: "#10b981",
+    defaultSpeed: 0.9,
+    defaultPitch: 0,
+    defaultEmotion: "calm",
+    defaultIntensity: "normal",
+    preferredVoiceTerms: ["知识", "专业", "温柔", "清晰"],
+  },
+  {
+    id: "storytelling",
+    name: "故事叙述",
+    iconComponent: Library,
+    description: "适合有声小说、儿童故事",
+    color: "#f59e0b",
+    defaultSpeed: 0.85,
+    defaultPitch: 5,
+    defaultEmotion: "excited",
+    defaultIntensity: "strong",
+    preferredVoiceTerms: ["故事", "童趣", "活泼", "磁性", "情感"],
+  },
+  {
+    id: "emotional",
+    name: "情感朗读",
+    iconComponent: Heart,
+    description: "适合散文诗歌、情感表达",
+    color: "#ef4444",
+    defaultSpeed: 0.8,
+    defaultPitch: -5,
+    defaultEmotion: "sad",
+    defaultIntensity: "strong",
+    preferredVoiceTerms: ["情感", "温柔", "细腻", "故事", "活泼"],
+  },
 ];
 
 const availableVoices = ref([]);
@@ -222,11 +288,18 @@ const emotions = [
   { value: "excited", lucideIcon: Zap, label: "激动" },
 ];
 
+const emotionIntensities = [
+  { value: "light", label: "轻微" },
+  { value: "normal", label: "标准" },
+  { value: "strong", label: "明显" },
+];
+
 const selectedScene = ref(store.selectedScene || null);
 const selectedVoice = ref(store.selectedVoice || null);
 const textContent = ref(store.textContent || "");
 const settings = ref({
   ...store.settings,
+  emotionIntensity: store.settings.emotionIntensity || "normal",
   pitch: normalizePitch(store.settings.pitch),
 });
 const isGenerating = ref(false);
@@ -246,6 +319,10 @@ onMounted(async () => {
       selectedVoice.value = null;
       store.selectedVoice = null;
     }
+    if (selectedScene.value && !selectedVoice.value) {
+      selectedVoice.value = bestVoiceForScene(selectedScene.value);
+      store.selectedVoice = selectedVoice.value;
+    }
     bgmMaterials.value = await fetchMaterials("bgm");
   } catch (error) {
     voiceLoadError.value = `音色列表加载失败：${error.message}`;
@@ -253,6 +330,18 @@ onMounted(async () => {
 });
 const canGenerate = computed(() => {
   return textContent.value.trim().length > 0 && selectedVoice.value !== null && !isGenerating.value;
+});
+
+const emotionWarning = computed(() => {
+  if (!selectedVoice.value || settings.value.emotion === "calm") return "";
+  const meta = emotionPowerMeta(selectedVoice.value);
+  if (meta.value === "low" && settings.value.emotionIntensity === "strong") {
+    return "当前音色情感表现较弱，明显情感可能不够突出，建议切换到故事类、情感类或温柔/活泼音色。";
+  }
+  if (meta.value === "medium" && settings.value.emotionIntensity === "strong") {
+    return "当前音色情感表现中等，如需更明显效果，优先选择情感表现强的音色。";
+  }
+  return "";
 });
 
 function normalizePitch(pitch) {
@@ -267,7 +356,48 @@ function formatPitch(pitch) {
 
 function selectScene(scene) {
   selectedScene.value = scene;
+  store.selectedScene = scene;
   settings.value.speed = scene.defaultSpeed;
+  settings.value.pitch = scene.defaultPitch ?? 0;
+  settings.value.emotion = scene.defaultEmotion || "calm";
+  settings.value.emotionIntensity = scene.defaultIntensity || "normal";
+  const recommendedVoice = bestVoiceForScene(scene);
+  if (recommendedVoice) {
+    selectedVoice.value = recommendedVoice;
+    store.selectedVoice = recommendedVoice;
+  }
+}
+
+function emotionPowerMeta(voice) {
+  const text = [voice.category, voice.style, voice.name, ...(voice.tags || [])].filter(Boolean).join(" ");
+  if (/故事|情感|童趣|活泼|温柔|细腻|克隆/.test(text)) {
+    return { value: "high", label: "强", className: "tag-emotion-high" };
+  }
+  if (/播客|磁性|活力|方言|阳光|亲切/.test(text)) {
+    return { value: "medium", label: "中", className: "tag-emotion-medium" };
+  }
+  return { value: "low", label: "弱", className: "tag-emotion-low" };
+}
+
+function bestVoiceForScene(scene) {
+  if (!availableVoices.value.length) return null;
+  const terms = scene.preferredVoiceTerms || [];
+  return [...availableVoices.value]
+    .map((voice) => ({ voice, score: voiceSceneScore(voice, terms) }))
+    .sort((a, b) => b.score - a.score)[0]?.voice || null;
+}
+
+function voiceSceneScore(voice, terms) {
+  const text = [voice.category, voice.style, voice.name, ...(voice.tags || [])].filter(Boolean).join(" ");
+  let score = voice.isRecommended ? 2 : 0;
+  for (const term of terms) {
+    if (text.includes(term)) score += 4;
+  }
+  const power = emotionPowerMeta(voice).value;
+  if (terms.some((term) => ["故事", "情感", "活泼", "温柔", "童趣"].includes(term)) && power === "high") {
+    score += 3;
+  }
+  return score;
 }
 
 function selectVoiceFromPreview() {
@@ -290,6 +420,7 @@ async function generateAudio() {
       speed: settings.value.speed,
       pitch: settings.value.pitch,
       emotion: settings.value.emotion,
+      emotionIntensity: settings.value.emotionIntensity,
       bgmType: settings.value.bgmType,
       bgmVolume: settings.value.bgmVolume,
     });
@@ -419,6 +550,60 @@ async function saveWork() {
   background: var(--primary-light);
   color: var(--primary);
   font-weight: 600;
+}
+
+.intensity-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.intensity-btn {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.intensity-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.intensity-btn.active {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.emotion-warning {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.tag-emotion-high {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.tag-emotion-medium {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.tag-emotion-low {
+  background: #f3f4f6;
+  color: #4b5563;
 }
 
 .generate-btn {

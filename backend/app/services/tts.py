@@ -7,22 +7,10 @@ from pathlib import Path
 
 import edge_tts
 
+from app.services.azure_tts import AZURE_TTS_PROVIDER, synthesize_azure_to_file
 from app.services.bailian_tts import BAILIAN_TTS_PROVIDER, synthesize_bailian_to_file
+from app.services.emotion_adapter import adapt_emotion
 from app.work_schemas import TextSegment
-
-EMOTION_RATE_MAP = {
-    "calm": 0,
-    "happy": 8,
-    "sad": -10,
-    "excited": 16,
-}
-
-EMOTION_PITCH_MAP = {
-    "calm": 0,
-    "happy": 8,
-    "sad": -12,
-    "excited": 18,
-}
 
 
 async def synthesize_to_file(
@@ -32,6 +20,7 @@ async def synthesize_to_file(
     pitch: int,
     emotion: str,
     output_path: Path,
+    emotion_intensity: str = "normal",
     provider: str = "edge_tts",
 ) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -41,6 +30,7 @@ async def synthesize_to_file(
         speed=speed,
         pitch=pitch,
         emotion=emotion,
+        emotion_intensity=emotion_intensity,
         output_path=output_path,
         provider=provider,
     )
@@ -56,6 +46,7 @@ async def synthesize_segments_to_file(
     pitch: int,
     emotion: str,
     output_path: Path,
+    emotion_intensity: str = "normal",
     max_concurrency: int = 3,
     provider: str = "edge_tts",
 ) -> int:
@@ -71,6 +62,7 @@ async def synthesize_segments_to_file(
             "speed": speed,
             "pitch": pitch,
             "emotion": emotion,
+            "emotion_intensity": emotion_intensity,
             "output_path": output_path,
         }
         if provider != "edge_tts":
@@ -92,6 +84,7 @@ async def synthesize_segments_to_file(
                     "speed": speed,
                     "pitch": pitch,
                     "emotion": emotion,
+                    "emotion_intensity": emotion_intensity,
                     "output_path": segment_paths[index],
                 }
                 if provider != "edge_tts":
@@ -183,12 +176,22 @@ async def _synthesize_with_retry(
     pitch: int,
     emotion: str,
     output_path: Path,
+    emotion_intensity: str = "normal",
     attempts: int = 3,
     provider: str = "edge_tts",
 ) -> None:
     for attempt in range(attempts):
         try:
-            await _synthesize_text(text, voice, speed, pitch, emotion, output_path, provider=provider)
+            await _synthesize_text(
+                text,
+                voice,
+                speed,
+                pitch,
+                emotion,
+                emotion_intensity,
+                output_path,
+                provider=provider,
+            )
             return
         except Exception:
             output_path.unlink(missing_ok=True)
@@ -203,6 +206,7 @@ async def _synthesize_text(
     speed: float,
     pitch: int,
     emotion: str,
+    emotion_intensity: str,
     output_path: Path,
     provider: str = "edge_tts",
 ) -> None:
@@ -211,21 +215,33 @@ async def _synthesize_text(
             text=text,
             provider_voice_id=voice,
             output_path=output_path,
+            speed=speed,
+            pitch=pitch,
+            emotion=emotion,
+            emotion_intensity=emotion_intensity,
+        )
+        return
+    if provider == AZURE_TTS_PROVIDER:
+        await synthesize_azure_to_file(
+            text=text,
+            voice=voice,
+            speed=speed,
+            pitch=pitch,
+            emotion=emotion,
+            emotion_intensity=emotion_intensity,
+            output_path=output_path,
         )
         return
     if provider != "edge_tts":
         raise RuntimeError(f"Unsupported TTS provider: {provider}")
 
-    rate_percent = int(round((speed - 1.0) * 100)) + EMOTION_RATE_MAP.get(emotion, 0)
-    rate_percent = max(-50, min(100, rate_percent))
-    pitch_hz = pitch + EMOTION_PITCH_MAP.get(emotion, 0)
-    pitch_hz = max(-100, min(100, pitch_hz))
+    adapted = adapt_emotion(provider, emotion, speed, pitch, emotion_intensity)
 
     communicate = edge_tts.Communicate(
         text=text,
         voice=voice,
-        rate=f"{rate_percent:+d}%",
-        pitch=f"{pitch_hz:+d}Hz",
+        rate=f"{adapted.rate_percent:+d}%",
+        pitch=f"{adapted.pitch_hz:+d}Hz",
     )
     await communicate.save(str(output_path))
 
@@ -377,6 +393,3 @@ def _media_command(name: str) -> str | None:
 def _estimate_duration_seconds(text: str, speed: float) -> int:
     chars_per_second = 4.5 * max(speed, 0.5)
     return max(1, round(len(text.strip()) / chars_per_second))
-
-
-

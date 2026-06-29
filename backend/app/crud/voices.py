@@ -19,7 +19,9 @@ def list_voices(
     )
     if scope == "public":
         query = query.filter(models.Voice.owner_id.is_(None))
-    elif scope == "personal" and user_id is not None:
+    elif scope == "personal":
+        if user_id is None:
+            return []
         query = query.filter(models.Voice.owner_id == user_id)
     elif user_id is not None:
         query = query.filter(

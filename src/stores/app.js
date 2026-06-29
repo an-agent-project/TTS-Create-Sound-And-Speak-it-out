@@ -17,6 +17,7 @@ export const useAppStore = defineStore("app", () => {
     speed: 1.0,
     pitch: 0,
     emotion: "calm",
+    emotionIntensity: "normal",
     bgmType: "none",
     bgmVolume: 30,
   });
@@ -242,6 +243,7 @@ export const useAppStore = defineStore("app", () => {
       speed: 1.0,
       pitch: 0,
       emotion: "calm",
+      emotionIntensity: "normal",
       bgmType: "none",
       bgmVolume: 30,
     };

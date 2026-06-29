@@ -11,6 +11,7 @@ class GenerateRequest(BaseModel):
     speed: float = Field(1.0, ge=0.5, le=2.0)
     pitch: int = Field(0, ge=-50, le=50)
     emotion: Literal["calm", "happy", "sad", "excited"] = "calm"
+    emotionIntensity: Literal["light", "normal", "strong"] = "normal"
     bgmType: str = "none"
     outputLang: str = Field("zh", alias="outputLang")
     bgmVolume: int = Field(30, ge=0, le=100)
@@ -49,6 +50,7 @@ class Work(BaseModel):
     speed: float
     pitch: int | Literal["low", "normal", "high"]
     emotion: str
+    emotionIntensity: str = "normal"
     bgmType: str
     bgmVolume: int
     duration: int

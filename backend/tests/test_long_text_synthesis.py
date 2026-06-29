@@ -75,6 +75,7 @@ def test_segment_synthesis_keeps_order_and_pauses(monkeypatch, tmp_path):
         pitch,
         emotion,
         output_path,
+        emotion_intensity="normal",
         attempts=3,
     ):
         synthesized.append((output_path.name, text, speed, pitch, emotion))
@@ -133,6 +134,7 @@ def test_segment_synthesis_falls_back_when_ffmpeg_is_missing(monkeypatch, tmp_pa
         pitch,
         emotion,
         output_path,
+        emotion_intensity="normal",
         attempts=3,
     ):
         synthesized.append((text, voice, speed, pitch, emotion))

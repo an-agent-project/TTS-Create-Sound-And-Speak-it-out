@@ -6,7 +6,7 @@
         <img src="https://static.runoob.com/images/mix/img_avatar.png" alt="Avatar" class="avatar" />
       </div>
 
-      <div v-if="!isRegister" class="container">
+      <div v-if="!isRegister && !isResetPassword" class="container">
         <label><b>邮箱或用户名</b></label>
         <input v-model="loginForm.identifier" type="text" placeholder="请输入邮箱或用户名" required />
 
@@ -36,7 +36,7 @@
         </label>
       </div>
 
-      <div v-else class="container">
+      <div v-else-if="isRegister" class="container">
         <label><b>邮箱</b></label>
         <input v-model="regForm.email" type="email" placeholder="请输入邮箱地址" required />
 
@@ -83,17 +83,66 @@
         </button>
       </div>
 
+      <div v-else class="container">
+        <label><b>邮箱</b></label>
+        <input v-model="resetForm.email" type="email" placeholder="请输入注册邮箱" required />
+
+        <label><b>验证码</b></label>
+        <div class="code-row">
+          <input v-model="resetForm.code" type="text" class="code-input" placeholder="6位验证码" maxlength="6" required />
+          <button type="button" class="send-code-btn" :disabled="codeCountdown > 0" @click="sendVerificationCode">
+            {{ codeCountdown > 0 ? codeCountdown + "s" : "发送验证码" }}
+          </button>
+        </div>
+
+        <label><b>新密码</b></label>
+        <div class="pwd-wrap">
+          <input
+            v-model="resetForm.newPassword"
+            :type="showPwd ? 'text' : 'password'"
+            placeholder="请设置新密码"
+            required
+          />
+          <span class="toggle-pwd" @click="showPwd = !showPwd">
+            <EyeOff v-if="showPwd" :size="18" />
+            <Eye v-else :size="18" />
+          </span>
+        </div>
+
+        <label><b>确认新密码</b></label>
+        <div class="pwd-wrap">
+          <input
+            v-model="resetForm.confirmPassword"
+            :type="showPwd ? 'text' : 'password'"
+            placeholder="请再次输入新密码"
+            required
+          />
+        </div>
+
+        <div v-if="errorMsg" class="err-msg">{{ errorMsg }}</div>
+        <div v-if="successMsg" class="success-msg">{{ successMsg }}</div>
+
+        <button class="login-btn" type="button" :disabled="resettingPassword" @click="handleResetPassword">
+          {{ resettingPassword ? "重置中" : "重置密码" }}
+        </button>
+      </div>
+
       <div class="container footer-container">
         <button type="button" class="cancelbtn" @click="emit('close')">取消</button>
         <span class="footer-links">
-          <template v-if="!isRegister">
+          <template v-if="isResetPassword">
+            <a href="#" @click.prevent="switchToLogin">返回登录</a>
+          </template>
+          <template v-else-if="!isRegister">
             <a href="#" @click.prevent="switchToRegister">注册账号</a>
           </template>
           <template v-else>
             <a href="#" @click.prevent="switchToLogin">返回登录</a>
           </template>
-          <span class="divider">|</span>
-          <a href="#" @click.prevent="forgotPassword">忘记密码?</a>
+          <template v-if="!isResetPassword">
+            <span class="divider">|</span>
+            <a href="#" @click.prevent="forgotPassword">忘记密码?</a>
+          </template>
         </span>
       </div>
     </div>
@@ -104,24 +153,28 @@
 import { reactive, ref, watch } from "vue";
 import { Eye, EyeOff } from "lucide-vue-next";
 import { useAppStore } from "../stores/app";
+import { resetPassword, sendAuthCode } from "../services/api.js";
 
 const emit = defineEmits(["close"]);
 const store = useAppStore();
 
 const isRegister = ref(false);
+const isResetPassword = ref(false);
 const errorMsg = ref("");
 const successMsg = ref("");
 const rememberMe = ref(false);
 const showPwd = ref(false);
 const loggingIn = ref(false);
 const registering = ref(false);
+const resettingPassword = ref(false);
 const codeCountdown = ref(0);
 let countdownTimer = null;
 
 const loginForm = reactive({ identifier: "", password: "" });
 const regForm = reactive({ email: "", code: "", username: "", password: "", confirmPassword: "" });
+const resetForm = reactive({ email: "", code: "", newPassword: "", confirmPassword: "" });
 
-watch(isRegister, () => {
+watch([isRegister, isResetPassword], () => {
   loginForm.identifier = "";
   loginForm.password = "";
   regForm.email = "";
@@ -129,6 +182,10 @@ watch(isRegister, () => {
   regForm.username = "";
   regForm.password = "";
   regForm.confirmPassword = "";
+  resetForm.email = "";
+  resetForm.code = "";
+  resetForm.newPassword = "";
+  resetForm.confirmPassword = "";
   showPwd.value = false;
   errorMsg.value = "";
   successMsg.value = "";
@@ -137,15 +194,18 @@ watch(isRegister, () => {
 });
 
 function switchToRegister() {
+  isResetPassword.value = false;
   isRegister.value = true;
 }
 
 function switchToLogin() {
   isRegister.value = false;
+  isResetPassword.value = false;
 }
 
 function forgotPassword() {
-  alert("请联系管理员重置密码");
+  isRegister.value = false;
+  isResetPassword.value = true;
 }
 
 function validateEmail(email) {
@@ -155,7 +215,8 @@ function validateEmail(email) {
 async function sendVerificationCode() {
   errorMsg.value = "";
   successMsg.value = "";
-  const email = regForm.email.trim().toLowerCase();
+  const targetForm = isResetPassword.value ? resetForm : regForm;
+  const email = targetForm.email.trim().toLowerCase();
   if (!email) {
     errorMsg.value = "请先输入邮箱地址";
     return;
@@ -166,13 +227,7 @@ async function sendVerificationCode() {
   }
 
   try {
-    const response = await fetch("/api/auth/send-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "发送失败");
+    const data = await sendAuthCode(email);
     successMsg.value = data.code
       ? `验证码已发送至 ${email}，开发验证码：${data.code}`
       : `验证码已发送至 ${email}`;
@@ -184,6 +239,49 @@ async function sendVerificationCode() {
     }, 1000);
   } catch (err) {
     errorMsg.value = err.message || "发送失败";
+  }
+}
+
+async function handleResetPassword() {
+  errorMsg.value = "";
+  successMsg.value = "";
+  const email = resetForm.email.trim().toLowerCase();
+  const code = resetForm.code.trim();
+
+  if (!email || !code || !resetForm.newPassword.trim()) {
+    errorMsg.value = "请填写完整的重置信息";
+    return;
+  }
+  if (!validateEmail(email)) {
+    errorMsg.value = "邮箱格式不正确";
+    return;
+  }
+  if (code.length !== 6) {
+    errorMsg.value = "请输入6位验证码";
+    return;
+  }
+  if (resetForm.newPassword !== resetForm.confirmPassword) {
+    errorMsg.value = "两次密码输入不一致";
+    return;
+  }
+  if (resetForm.newPassword.length < 4) {
+    errorMsg.value = "密码长度不能少于4位";
+    return;
+  }
+
+  resettingPassword.value = true;
+  try {
+    await resetPassword({ email, code, newPassword: resetForm.newPassword });
+    successMsg.value = "密码重置成功，请使用新密码登录";
+    setTimeout(() => {
+      switchToLogin();
+      loginForm.identifier = email;
+      successMsg.value = "密码重置成功，请登录";
+    }, 800);
+  } catch (error) {
+    errorMsg.value = error.message || "密码重置失败";
+  } finally {
+    resettingPassword.value = false;
   }
 }
 

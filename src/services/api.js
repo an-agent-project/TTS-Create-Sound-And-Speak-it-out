@@ -10,7 +10,7 @@ async function request(path, options = {}) {
   });
 
   if (!response.ok) {
-    let message = `请求失败，{response.status}`;
+    let message = `请求失败，${response.status}`;
     try {
       const data = await response.json();
       message = data.detail || message;
@@ -39,6 +39,20 @@ function errorMessage(detail, fallback) {
 function authHeaders() {
   const token = localStorage.getItem("auth_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export function sendAuthCode(email) {
+  return request("/auth/send-code", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function resetPassword(payload) {
+  return request("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function fetchScenes() {
@@ -81,7 +95,7 @@ export async function uploadMaterial(formData) {
     body: formData,
   });
   if (!response.ok) {
-    let message = `请求失败，{response.status}`;
+    let message = `请求失败，${response.status}`;
     try {
       const data = await response.json();
       message = errorMessage(data.detail, message);
@@ -100,7 +114,7 @@ export async function createVoiceClone(formData) {
     body: formData,
   });
   if (!response.ok) {
-    let message = `请求失败，{response.status}`;
+    let message = `请求失败，${response.status}`;
     try {
       const data = await response.json();
       message = errorMessage(data.detail, message);

@@ -16,7 +16,7 @@ from app.api.voice_clones import router as voice_clones_router
 from app.crud import tts_preview as tts_preview_crud
 from app.data import SCENE_BY_ID, SCENES, VOICE_BY_ID
 from app.auth import get_current_user
-from app.database import engine, get_db
+from app.database import engine, ensure_legacy_schema, get_db
 from app.models import Base, User
 from app.models import Material
 from sqlalchemy.orm import Session
@@ -35,6 +35,7 @@ ensure_storage()
 
 # Create SQL tables on startup for the auth and voice-library APIs.
 Base.metadata.create_all(bind=engine)
+ensure_legacy_schema()
 
 app = FastAPI(title="TTS Podcast API", version="1.0.0")
 
@@ -109,6 +110,7 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
             speed=payload.speed,
             pitch=payload.pitch,
             emotion=payload.emotion,
+            emotion_intensity=payload.emotionIntensity,
             output_path=dry_output_path,
             provider=provider,
         )
@@ -135,6 +137,7 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
         speed=payload.speed,
         pitch=payload.pitch,
         emotion=payload.emotion,
+        emotionIntensity=payload.emotionIntensity,
         bgmType=payload.bgmType,
         bgmVolume=payload.bgmVolume,
         duration=duration,

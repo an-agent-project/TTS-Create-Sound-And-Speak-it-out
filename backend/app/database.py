@@ -1,6 +1,6 @@
 ﻿import os
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
 from app.env import load_env
@@ -24,3 +24,16 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def ensure_legacy_schema() -> None:
+    columns = {column["name"] for column in inspect(engine).get_columns("voices")}
+    if "source_voice_id" in columns:
+        return
+
+    with engine.begin() as conn:
+        if engine.dialect.name == "mysql":
+            conn.execute(text("ALTER TABLE voices ADD COLUMN source_voice_id INT NULL"))
+            conn.execute(text("CREATE INDEX ix_voices_source_voice_id ON voices (source_voice_id)"))
+        else:
+            conn.execute(text("ALTER TABLE voices ADD COLUMN source_voice_id INTEGER NULL"))
