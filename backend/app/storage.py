@@ -16,21 +16,24 @@ def ensure_storage() -> None:
         WORKS_FILE.write_text("[]\n", encoding="utf-8")
 
 
-def list_works() -> list[Work]:
+def list_works(owner_id: int | None = None) -> list[Work]:
     ensure_storage()
     raw = json.loads(WORKS_FILE.read_text(encoding="utf-8"))
     works = []
+    visible_works = []
     stale_ids = []
     for item in raw:
         work = Work(**item)
         media_path = MEDIA_DIR / f"{work.id}.mp3"
         if media_path.exists():
             works.append(work)
+            if owner_id is None or work.ownerId == owner_id:
+                visible_works.append(work)
         else:
             stale_ids.append(work.id)
     if stale_ids:
         _write_works(works)
-    return works
+    return visible_works
 
 
 def save_work(work: Work) -> Work:
@@ -40,8 +43,8 @@ def save_work(work: Work) -> Work:
     return work
 
 
-def get_work(work_id: str) -> Work | None:
-    for work in list_works():
+def get_work(work_id: str, owner_id: int | None = None) -> Work | None:
+    for work in list_works(owner_id):
         if work.id == work_id:
             media_path = MEDIA_DIR / f"{work.id}.mp3"
             if not media_path.exists():
@@ -50,13 +53,13 @@ def get_work(work_id: str) -> Work | None:
     return None
 
 
-def delete_work(work_id: str) -> bool:
+def delete_work(work_id: str, owner_id: int | None = None) -> bool:
     works = list_works()
-    next_works = [work for work in works if work.id != work_id]
-    if len(next_works) == len(works):
+    work = next((item for item in works if item.id == work_id and (owner_id is None or item.ownerId == owner_id)), None)
+    if work is None:
         return False
 
-    _write_works(next_works)
+    _write_works([item for item in works if item.id != work_id])
     media_path = MEDIA_DIR / f"{work_id}.mp3"
     if media_path.exists():
         media_path.unlink()

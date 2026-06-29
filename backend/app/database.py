@@ -27,13 +27,19 @@ def get_db():
 
 
 def ensure_legacy_schema() -> None:
-    columns = {column["name"] for column in inspect(engine).get_columns("voices")}
-    if "source_voice_id" in columns:
-        return
-
     with engine.begin() as conn:
-        if engine.dialect.name == "mysql":
-            conn.execute(text("ALTER TABLE voices ADD COLUMN source_voice_id INT NULL"))
-            conn.execute(text("CREATE INDEX ix_voices_source_voice_id ON voices (source_voice_id)"))
-        else:
-            conn.execute(text("ALTER TABLE voices ADD COLUMN source_voice_id INTEGER NULL"))
+        voice_columns = {column["name"] for column in inspect(engine).get_columns("voices")}
+        if "source_voice_id" not in voice_columns:
+            if engine.dialect.name == "mysql":
+                conn.execute(text("ALTER TABLE voices ADD COLUMN source_voice_id INT NULL"))
+                conn.execute(text("CREATE INDEX ix_voices_source_voice_id ON voices (source_voice_id)"))
+            else:
+                conn.execute(text("ALTER TABLE voices ADD COLUMN source_voice_id INTEGER NULL"))
+
+        material_columns = {column["name"] for column in inspect(engine).get_columns("materials")}
+        if "owner_id" not in material_columns:
+            if engine.dialect.name == "mysql":
+                conn.execute(text("ALTER TABLE materials ADD COLUMN owner_id INT NULL"))
+                conn.execute(text("CREATE INDEX ix_materials_owner_id ON materials (owner_id)"))
+            else:
+                conn.execute(text("ALTER TABLE materials ADD COLUMN owner_id INTEGER NULL"))

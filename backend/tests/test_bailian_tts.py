@@ -22,6 +22,7 @@ def test_qwen_tts_call_uses_multimodal_conversation(monkeypatch):
             model="qwen3-tts-flash",
             voice="Cherry",
             language_type="Chinese",
+            instructions="温暖自然",
             api_key="sk-test",
             workspace=None,
         )
@@ -34,6 +35,8 @@ def test_qwen_tts_call_uses_multimodal_conversation(monkeypatch):
         "text": "你好",
         "voice": "Cherry",
         "language_type": "Chinese",
+        "instructions": "温暖自然",
+        "optimize_instructions": True,
         "stream": False,
     }
 

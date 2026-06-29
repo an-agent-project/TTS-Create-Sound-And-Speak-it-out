@@ -62,7 +62,7 @@
           @toggle-favorite="store.toggleFavoriteVoice(voice.id)"
           @preview="previewVoice = voice"
           @select="goToWorkspace(voice)"
-          @delete-voice="deleteVoice(voice.id)"
+          @delete-voice="deleteVoice(voice)"
           @update-tags="(tags) => updateVoiceTags(voice.id, tags)"
         />
       </div>
@@ -93,7 +93,7 @@ import { useRouter } from "vue-router";
 import { Baby, Drama, Search, Settings2, Star, User } from "lucide-vue-next";
 import VoiceCard from "../components/VoiceCard.vue";
 import VoicePreview from "../components/VoicePreview.vue";
-import { fetchPersonalVoices, deletePersonalVoice } from "../services/api.js";
+import { fetchPersonalVoices, deleteVoiceById } from "../services/api.js";
 import { useAppStore } from "../stores/app.js";
 
 const router = useRouter();
@@ -142,10 +142,13 @@ const filteredVoices = computed(() => {
   return voices;
 });
 
-async function deleteVoice(id) {
+async function deleteVoice(voice) {
   try {
-    await deletePersonalVoice(id);
-    allVoices.value = allVoices.value.filter((voice) => voice.id !== id);
+    await deleteVoiceById(voice.dbId);
+    allVoices.value = allVoices.value.filter((item) => item.id !== voice.id);
+    if (store.selectedVoice?.id === voice.id || store.selectedVoice?.dbId === voice.dbId) {
+      store.selectedVoice = null;
+    }
   } catch (error) {
     alert("Failed to delete: " + error.message);
   }

@@ -312,7 +312,6 @@ async function sendVerificationCode() {
     successMsg.value = data.code
       ? `验证码已发送至 ${email}，开发验证码：${data.code}`
       : `验证码已发送至 ${email}`;
-    if (data.code) console.log("[DEV] verification code:", data.code);
     codeCountdown.value = 60;
     countdownTimer = setInterval(() => {
       codeCountdown.value -= 1;

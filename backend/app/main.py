@@ -75,7 +75,12 @@ def preprocess(payload: PreprocessRequest):
 
 
 @app.post("/api/tts/generate", response_model=Work)
-async def generate_tts(payload: GenerateRequest, request: Request, db: Session = Depends(get_db)) -> Work:
+async def generate_tts(
+    payload: GenerateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Work:
     output_lang = payload.outputLang or "zh"
 
     voice_id_for_tts = payload.voiceId if output_lang == "zh" else LANG_VOICE_MAP.get(output_lang, payload.voiceId)
@@ -128,6 +133,7 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
     scene_name = scene["name"] if scene else "通用"
     work = Work(
         id=work_id,
+        ownerId=current_user.id,
         title=payload.title or _build_title(scene_name, processed.cleanedText),
         content=processed.cleanedText,
         sceneId=payload.sceneId or "",
@@ -149,12 +155,12 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
 
 @app.get("/api/works", response_model=list[Work])
 def get_works(current_user: User = Depends(get_current_user)) -> list[Work]:
-    return list_works()
+    return list_works(current_user.id)
 
 
 @app.get("/api/works/{work_id}", response_model=Work)
 def get_work_detail(work_id: str, current_user: User = Depends(get_current_user)) -> Work:
-    work = get_work(work_id)
+    work = get_work(work_id, current_user.id)
     if work is None:
         raise HTTPException(status_code=404, detail="work not found")
     return work
@@ -162,7 +168,7 @@ def get_work_detail(work_id: str, current_user: User = Depends(get_current_user)
 
 @app.delete("/api/works/{work_id}")
 def remove_work(work_id: str, current_user: User = Depends(get_current_user)) -> dict[str, bool]:
-    if not delete_work(work_id):
+    if not delete_work(work_id, current_user.id):
         raise HTTPException(status_code=404, detail="work not found")
     return {"ok": True}
 

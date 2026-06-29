@@ -41,6 +41,7 @@ class PreprocessResponse(BaseModel):
 
 class Work(BaseModel):
     id: str
+    ownerId: int | None = None
     title: str
     content: str
     sceneId: str = ""
