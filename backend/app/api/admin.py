@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
 from app.database import get_db, engine
-from app.models import Material, MaterialReport, User, Voice
+from app.models import Material, MaterialReport, User, Voice, VoicePreviewAudio, VoiceProviderProfile
+from app.crud import voices as voice_crud
 from app.storage import MEDIA_DIR, list_works, delete_work
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -215,12 +216,20 @@ def update_voice(
 @router.delete("/voices/{voice_id}")
 def delete_voice(
     voice_id: int,
+    permanent: bool = Query(default=False, description="cascade delete all cloned copies"),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ) -> dict:
     voice = db.query(Voice).filter(Voice.id == voice_id).first()
     if not voice:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="voice not found")
+    if permanent and voice.owner_id is None:
+        clones_deleted = voice_crud.cascade_delete_public_voice(db, voice)
+        return {"detail": f"voice and {clones_deleted} cloned copies soft-deleted"}
+    # cascade delete related records
+    for provider in voice.providers:
+        db.query(VoicePreviewAudio).filter(VoicePreviewAudio.voice_provider_profile_id == provider.id).delete()
+        db.delete(provider)
     db.delete(voice)
     db.commit()
     return {"detail": "voice deleted"}

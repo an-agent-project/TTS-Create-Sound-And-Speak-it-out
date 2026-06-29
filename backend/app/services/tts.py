@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import os
 import shutil
 import tempfile
@@ -118,6 +118,9 @@ async def mix_bgm_to_file(
     bgm_volume: int = 30,
 ) -> float:
     if not _has_media_tools():
+        if output_path != voice_path:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(voice_path), str(output_path))
         return _estimate_duration_seconds("", 1.0)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -139,7 +142,7 @@ async def mix_bgm_to_file(
         )
         return await _probe_duration(output_path)
 
-    bgm_gain = max(0.0, min(1.0, bgm_volume / 100)) * 0.28
+    bgm_gain = max(0.0, min(1.0, bgm_volume / 100)) * 0.5
     await _run_command(
         _media_command("ffmpeg"),
         "-y",
@@ -374,3 +377,6 @@ def _media_command(name: str) -> str | None:
 def _estimate_duration_seconds(text: str, speed: float) -> int:
     chars_per_second = 4.5 * max(speed, 0.5)
     return max(1, round(len(text.strip()) / chars_per_second))
+
+
+

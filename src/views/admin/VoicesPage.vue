@@ -3,7 +3,7 @@
     <h2>音色管理</h2>
     <p v-if="loadError" class="load-error">{{ loadError }}</p>
     <table v-else-if="voices.length" class="table">
-      <thead><tr><th>ID</th><th>音色名</th><th>性别</th><th>分类</th><th>供应商</th><th>状态</th><th>操作</th></tr></thead>
+      <thead><tr><th>ID</th><th>音色名</th><th>性别</th><th>分类</th><th>供应商</th><th>归属</th><th>状态</th><th>操作</th></tr></thead>
       <tbody>
         <tr v-for="v in voices" :key="v.id" :class="{ inactive: !v.isActive }">
           <td>{{ v.id }}</td>
@@ -17,6 +17,7 @@
             <span v-else>{{ v.category }}</span>
           </td>
           <td>{{ v.providers.map(p => p.provider).join(', ') }}</td>
+          <td>{{ v.ownerId ? '用户#' + v.ownerId : '公共' }}</td>
           <td>
             <span :class="v.isActive ? 'badge ok' : 'badge del'">{{ v.isActive ? '启用' : '禁用' }}</span>
           </td>
@@ -28,7 +29,7 @@
             <template v-else>
               <button @click="startEdit(v)" class="btn-sm">编辑</button>
               <button @click="toggleVoice(v)" class="btn-sm warn">{{ v.isActive ? '禁用' : '启用' }}</button>
-              <button @click="removeVoice(v.id)" class="btn-sm danger">删除</button>
+              <button @click="removeVoice(v)" class="btn-sm danger">删除</button>
             </template>
           </td>
         </tr>
@@ -70,7 +71,7 @@ async function saveEdit(id) {
   const p = new URLSearchParams()
   if (editName.value) p.set('display_name', editName.value)
   if (editCat.value) p.set('category', editCat.value)
-  await fetch(`/api/admin/voices/${id}?${p}`, { method: 'PUT', headers: store.authHeaders() })
+  await fetch('/api/admin/voices/' + id + '?' + p, { method: 'PUT', headers: store.authHeaders() })
   editingId.value = null
   await load()
 }
@@ -78,13 +79,18 @@ async function saveEdit(id) {
 async function toggleVoice(v) {
   const p = new URLSearchParams()
   p.set('is_active', String(!v.isActive))
-  await fetch(`/api/admin/voices/${v.id}?${p}`, { method: 'PUT', headers: store.authHeaders() })
+  await fetch('/api/admin/voices/' + v.id + '?' + p, { method: 'PUT', headers: store.authHeaders() })
   await load()
 }
 
-async function removeVoice(id) {
-  if (!confirm('确定删除该音色？')) return
-  await fetch(`/api/admin/voices/${id}`, { method: 'DELETE', headers: store.authHeaders() })
+async function removeVoice(v) {
+  if (v.ownerId) {
+    if (!confirm('确定删除该音色？')) return
+  } else {
+    if (!confirm('该音色为公共音色，删除后将同时删除所有用户的个人副本。\n\n确定删除？')) return
+  }
+  const url = '/api/admin/voices/' + v.id + (v.ownerId ? '' : '?permanent=true')
+  await fetch(url, { method: 'DELETE', headers: store.authHeaders() })
   await load()
 }
 

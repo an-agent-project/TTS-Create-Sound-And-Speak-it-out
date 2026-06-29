@@ -33,6 +33,7 @@ class Voice(Base):
     is_recommended = Column(Boolean, nullable=False, default=False, index=True)
     is_active = Column(Boolean, nullable=False, default=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    source_voice_id = Column(Integer, ForeignKey("voices.id"), nullable=True, index=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 

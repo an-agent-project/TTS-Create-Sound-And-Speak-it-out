@@ -21,6 +21,7 @@ from app.models import Base, User
 from app.models import Material
 from sqlalchemy.orm import Session
 from app.services.text_processing import preprocess_text
+from app.services.translator import LANG_VOICE_MAP, translate_text
 from app.services.tts import mix_bgm_to_file, synthesize_segments_to_file
 from app.storage import MEDIA_DIR, delete_work, ensure_storage, get_work, list_works, save_work
 from app.work_schemas import GenerateRequest, PreprocessRequest, Work
@@ -74,15 +75,24 @@ def preprocess(payload: PreprocessRequest):
 
 @app.post("/api/tts/generate", response_model=Work)
 async def generate_tts(payload: GenerateRequest, request: Request, db: Session = Depends(get_db)) -> Work:
-    provider_profile = tts_preview_crud.get_provider_profile_by_voice_id(db, payload.voiceId)
-    voice = VOICE_BY_ID.get(payload.voiceId)
+    output_lang = payload.outputLang or "zh"
+
+    voice_id_for_tts = payload.voiceId if output_lang == "zh" else LANG_VOICE_MAP.get(output_lang, payload.voiceId)
+    provider_profile = tts_preview_crud.get_provider_profile_by_voice_id(db, voice_id_for_tts)
+    voice = VOICE_BY_ID.get(voice_id_for_tts)
     provider = provider_profile.provider if provider_profile else "edge_tts"
-    voice_name = provider_profile.voice.display_name if provider_profile else (voice["name"] if voice else None)
-    if provider_profile is None and voice is None:
+    voice_name = provider_profile.voice.display_name if provider_profile else (voice["name"] if voice else voice_id_for_tts)
+    if provider_profile is None and voice is None and output_lang == "zh":
         raise HTTPException(status_code=400, detail="unsupported voice id")
 
     scene = SCENE_BY_ID.get(payload.sceneId or "")
-    processed = preprocess_text(payload.content)
+    content_to_speak = payload.content
+    if output_lang != "zh":
+        try:
+            content_to_speak = translate_text(payload.content, output_lang)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Translation failed: {exc}") from exc
+    processed = preprocess_text(content_to_speak)
     if not processed.cleanedText:
         raise HTTPException(status_code=400, detail="text content cannot be empty")
     if processed.sensitiveWords:
@@ -95,7 +105,7 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
     try:
         await synthesize_segments_to_file(
             segments=processed.segments,
-            voice=payload.voiceId,
+            voice=voice_id_for_tts,
             speed=payload.speed,
             pitch=payload.pitch,
             emotion=payload.emotion,
@@ -120,8 +130,8 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
         content=processed.cleanedText,
         sceneId=payload.sceneId or "",
         sceneName=scene_name,
-        voiceId=payload.voiceId,
-        voiceName=voice_name or payload.voiceId,
+        voiceId=voice_id_for_tts,
+        voiceName=voice_name or voice_id_for_tts,
         speed=payload.speed,
         pitch=payload.pitch,
         emotion=payload.emotion,

@@ -1,0 +1,286 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Library · Fresh</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f6faf7;
+  --surface: #fff;
+  --border: #dce8df;
+  --text: #1a2e1a;
+  --text-secondary: #7a9a7e;
+  --accent: #2d8a4e;
+  --accent-light: #e8f5ec;
+  --accent-glow: rgba(45,138,78,.08);
+  --radius: 16px;
+  --shadow: 0 1px 3px rgba(0,0,0,.03);
+  --shadow-hover: 0 12px 40px rgba(30,60,30,.08);
+  --transition: .3s cubic-bezier(.4,0,.2,1);
+}
+
+body {
+  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* Nav */
+.nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(255,255,255,.78);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+  padding: 0 40px;
+}
+.nav-inner { max-width: 1280px; margin: 0 auto; display: flex; align-items: center; gap: 40px; height: 56px; }
+.nav-brand {
+  font-size: 15px; font-weight: 600; letter-spacing: -.02em;
+  color: var(--text); text-decoration: none;
+  display: flex; align-items: center; gap: 8px;
+}
+.nav-brand::before {
+  content: ''; width: 8px; height: 8px; border-radius: 50%;
+  background: linear-gradient(135deg, #2d8a4e, #4ade80);
+}
+.nav-links { display: flex; gap: 4px; flex: 1; }
+.nav-link {
+  padding: 6px 18px; border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-secondary); text-decoration: none;
+  transition: all var(--transition);
+}
+.nav-link:hover, .nav-link.active { color: var(--accent); background: var(--accent-light); }
+
+/* Page */
+.page { max-width: 1280px; margin: 0 auto; padding: 48px 40px; }
+.page-header { margin-bottom: 40px; }
+.page-title { font-size: 28px; font-weight: 700; letter-spacing: -.03em; margin-bottom: 6px; }
+.page-subtitle { font-size: 14px; color: var(--text-secondary); font-weight: 400; }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; margin-bottom: 32px; border-bottom: 1px solid var(--border); }
+.tab {
+  padding: 10px 24px; font-size: 13px; font-weight: 500;
+  color: var(--text-secondary); border: none; background: none;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; transition: all var(--transition);
+  font-family: inherit;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Filters */
+.filters { display: flex; gap: 12px; margin-bottom: 32px; flex-wrap: wrap; }
+.filter-pill {
+  padding: 6px 16px; border-radius: 20px;
+  font-size: 12px; font-weight: 500;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  background: var(--surface); cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+.filter-pill:hover { border-color: var(--accent); color: var(--accent); }
+.filter-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Grid */
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+@media (max-width: 1100px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 800px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 500px) { .grid { grid-template-columns: 1fr; } }
+
+/* Card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  transition: all var(--transition);
+  cursor: pointer;
+  position: relative;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--accent);
+}
+.card-avatar {
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; color: #fff;
+  flex-shrink: 0;
+}
+.card-avatar.female { background: linear-gradient(135deg, #ec4899, #f9a8d4); }
+.card-avatar.male { background: linear-gradient(135deg, #2d8a4e, #4ade80); }
+.card-avatar.child { background: linear-gradient(135deg, #f59e0b, #fcd34d); }
+.card-name { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.card-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; flex: 1; }
+.card-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag {
+  padding: 3px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 500;
+  background: var(--accent-light);
+  color: var(--accent);
+}
+.card-actions { display: flex; gap: 8px; }
+.btn {
+  flex: 1; padding: 9px 0;
+  border-radius: 10px;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all var(--transition);
+  font-family: inherit; border: none; text-align: center;
+}
+.btn-outline { background: var(--surface); color: var(--accent); border: 1px solid var(--accent-light); }
+.btn-outline:hover { background: var(--accent-light); }
+.btn-primary { background: linear-gradient(135deg, #2d8a4e, #3ba55d); color: #fff; }
+.btn-primary:hover { opacity: .9; transform: scale(1.02); }
+.btn-ghost { background: none; color: var(--text-secondary); border: 1px solid transparent; }
+.btn-ghost:hover { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+
+/* Toast */
+.toast {
+  position: fixed; top: 72px; left: 50%; transform: translateX(-50%);
+  background: linear-gradient(135deg, #2d8a4e, #3ba55d);
+  color: #fff; padding: 10px 28px; border-radius: 10px;
+  font-size: 13px; font-weight: 500; z-index: 999;
+  box-shadow: 0 4px 20px rgba(45,138,78,.3);
+  animation: toastIn .4s ease, toastOut .4s ease 1.6s forwards;
+}
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-12px); } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(-50%) translateY(-12px); } }
+
+/* Empty */
+.empty { grid-column: 1 / -1; text-align: center; padding: 80px 0; color: var(--text-secondary); }
+.empty-icon { font-size: 48px; margin-bottom: 16px; opacity: .25; }
+.empty-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+.empty-desc { font-size: 13px; }
+
+/* Section title */
+.section-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--accent);
+  margin-bottom: 16px;
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-brand">VoiceLab</a>
+      <div class="nav-links">
+        <a href="#" class="nav-link">创作工作台</a>
+        <a href="#" class="nav-link">音色提取台</a>
+        <a href="#" class="nav-link active">公共音色库</a>
+        <a href="#" class="nav-link">个人音色库</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="page">
+    <div class="page-header">
+      <h1 class="page-title">公共音色库</h1>
+      <p class="page-subtitle">浏览精选音色，试听并存入你的个人收藏</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" @click="tab = 'public'">公共音色库</button>
+      <button class="tab" :class="{ active: tab === 'personal' }" @click="tab = 'personal'">
+        个人音色库 <span style="font-size:11px;color:var(--text-secondary);margin-left:4px;">{{ personalVoices.length }}</span>
+      </button>
+    </div>
+
+    <div class="filters">
+      <button class="filter-pill" :class="{ active: gender === 'all' }" @click="gender = 'all'">全部</button>
+      <button class="filter-pill" :class="{ active: gender === 'female' }" @click="gender = 'female'">女声</button>
+      <button class="filter-pill" :class="{ active: gender === 'male' }" @click="gender = 'male'">男声</button>
+      <button class="filter-pill" :class="{ active: gender === 'child' }" @click="gender = 'child'">童声</button>
+    </div>
+
+    <div v-if="toast" class="toast">{{ toast }}</div>
+
+    <div class="grid">
+      <template v-for="voice in filteredVoices" :key="voice.id">
+        <div class="card">
+          <div class="card-avatar" :class="voice.gender">{{ voice.name[0] }}</div>
+          <div class="card-name">
+            {{ voice.name }}
+            <span v-if="voice.fromPublic" class="tag" style="margin-left:6px;font-size:10px;background:#dbeafe;color:#3b82f6;">公共库</span>
+          </div>
+          <div class="card-desc">{{ voice.description }}</div>
+          <div class="card-tags">
+            <span v-for="tag in voice.tags" :key="tag" class="tag">{{ tag }}</span>
+          </div>
+          <div class="card-actions">
+            <button v-if="tab === 'public' && !voice.saved" class="btn btn-outline" @click="saveVoice(voice)">存入我的库</button>
+            <button v-else-if="tab === 'personal'" class="btn btn-primary" @click="selectVoice(voice)">选择此音色</button>
+            <span v-if="voice.saved" class="btn btn-ghost" style="flex:0;padding:9px 16px;cursor:default;">已存入</span>
+            <button v-if="tab === 'personal'" class="btn btn-ghost" @click="removeVoice(voice)">删除</button>
+          </div>
+        </div>
+      </template>
+
+      <div v-if="filteredVoices.length === 0" class="empty">
+        <div class="empty-icon">~</div>
+        <div class="empty-title">暂无匹配音色</div>
+        <div class="empty-desc">试试调整筛选条件</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, computed } = Vue;
+createApp({
+  setup() {
+    const tab = ref('public');
+    const gender = ref('all');
+    const toast = ref('');
+    const savedIds = ref(new Set());
+
+    const publicVoices = ref([
+      { id: 1, name: '晓晓', gender: 'female', description: '温柔自然的女声，适合知识讲解、课程录制和散文朗读', tags: ['温柔', '知识'], fromPublic: false },
+      { id: 2, name: '云希', gender: 'male', description: '自然有表现力的男声，适合故事叙述和播客节目', tags: ['磁性', '故事'], fromPublic: false },
+      { id: 3, name: '晓伊', gender: 'female', description: '活泼清亮的女声，适合轻松内容和情感表达', tags: ['活泼', '情感'], fromPublic: false },
+      { id: 4, name: '云健', gender: 'male', description: '充满力量感的男声，适合运动和热血叙事', tags: ['活力', '播客'], fromPublic: false },
+      { id: 5, name: '云扬', gender: 'male', description: '稳定可靠的新闻播报感男声，适合正式内容', tags: ['专业', '知识'], fromPublic: false },
+      { id: 6, name: '云夏', gender: 'male', description: '偏童真可爱的男声，适合儿童绘本和轻松故事', tags: ['童趣', '故事'], fromPublic: false },
+      { id: 7, name: '小北', gender: 'female', description: '辽宁方言女声，适合地域特色播客', tags: ['方言', '播客'], fromPublic: false },
+      { id: 8, name: '小妮', gender: 'female', description: '陕西方言女声，适合方言故事和地方文化', tags: ['方言', '故事'], fromPublic: false },
+    ]);
+
+    const personalVoices = ref([]);
+
+    const allVoices = computed(() => tab.value === 'public' ? publicVoices.value : personalVoices.value);
+    const filteredVoices = computed(() => {
+      let list = allVoices.value.map(v => ({ ...v, saved: savedIds.value.has(v.id) }));
+      if (gender.value !== 'all') list = list.filter(v => v.gender === gender.value);
+      return list;
+    });
+
+    function showToast(msg) { toast.value = msg; setTimeout(() => { toast.value = ''; }, 2000); }
+    function saveVoice(voice) {
+      const clone = { ...voice, id: Date.now(), fromPublic: true };
+      personalVoices.value.push(clone); savedIds.value.add(voice.id);
+      showToast('已存入个人音色库');
+    }
+    function removeVoice(voice) { personalVoices.value = personalVoices.value.filter(v => v.id !== voice.id); showToast('已删除'); }
+    function selectVoice(voice) { showToast('已选择: ' + voice.name); }
+
+    return { tab, gender, toast, publicVoices, personalVoices, filteredVoices, saveVoice, removeVoice, selectVoice };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

@@ -1,17 +1,17 @@
 :root {
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --primary-light: #eef2ff;
+  --primary: #2d8a4e;
+  --primary-hover: #22863a;
+  --primary-light: #e8f5ec;
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --bg: #f8fafc;
+  --bg: #f6faf7;
   --bg-card: #ffffff;
   --bg-sidebar: #1e293b;
   --text: #1e293b;
   --text-secondary: #64748b;
   --text-muted: #94a3b8;
-  --border: #e2e8f0;
+  --border: #dce8df;
   --border-light: #f1f5f9;
   --radius: 12px;
   --radius-sm: 8px;

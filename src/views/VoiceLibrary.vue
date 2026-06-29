@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1 class="page-title"><Drama :size="28" class="title-icon" /> 个人音色库</h1>
-        <p class="page-subtitle">浏览全部音色，试听并收藏你喜欢的声音</p>
+        <p class="page-subtitle">管理你的个人音色，从公共音色库存入的音色会标注来源</p>
       </div>
       <button class="btn btn-outline manage-toggle" @click="manageMode = !manageMode">
         <Settings2 :size="16" />
@@ -46,7 +46,8 @@
           {{ showFavoritesOnly ? "显示全部" : "仅看收藏" }}
         </button>
       </div>
-    </div>
+    </div>
+
 
     <div class="section">
       <div class="grid grid-4">
@@ -61,7 +62,7 @@
           @toggle-favorite="store.toggleFavoriteVoice(voice.id)"
           @preview="previewVoice = voice"
           @select="goToWorkspace(voice)"
-          @delete-voice="deleteVoice(voice)"
+          @delete-voice="deleteVoice(voice.id)"
           @update-tags="(tags) => updateVoiceTags(voice.id, tags)"
         />
       </div>
@@ -92,7 +93,7 @@ import { useRouter } from "vue-router";
 import { Baby, Drama, Search, Settings2, Star, User } from "lucide-vue-next";
 import VoiceCard from "../components/VoiceCard.vue";
 import VoicePreview from "../components/VoicePreview.vue";
-import { deleteVoiceById, fetchVoices } from "../services/api.js";
+import { fetchPersonalVoices, deletePersonalVoice } from "../services/api.js";
 import { useAppStore } from "../stores/app.js";
 
 const router = useRouter();
@@ -107,23 +108,15 @@ const loadError = ref("");
 
 const categories = ["知识类", "播客类", "故事类", "情感类", "个人音色"];
 
-const fallbackVoices = [
-  { id: "zh-CN-XiaoxiaoNeural", name: "晓晓", gender: "female", style: "温柔", category: "知识类", description: "温柔自然的女声，适合知识讲解、课程录制和散文朗读", isRecommended: true, tags: ["温柔", "知识"] },
-  { id: "zh-CN-YunxiNeural", name: "云希", gender: "male", style: "磁性", category: "故事类", description: "自然有表现力的男声，适合故事叙述和播客节目", isRecommended: true, tags: ["磁性", "故事"] },
-  { id: "zh-CN-XiaoyiNeural", name: "晓伊", gender: "female", style: "活泼", category: "情感类", description: "活泼清亮的女声，适合轻松内容、情感表达和儿童故事", isRecommended: true, tags: ["活泼", "情感"] },
-  { id: "zh-CN-YunjianNeural", name: "云健", gender: "male", style: "活力", category: "播客类", description: "充满力量感的男声，适合运动、户外和热血叙事", isRecommended: true, tags: ["活力", "播客"] },
-  { id: "zh-CN-YunyangNeural", name: "云扬", gender: "male", style: "专业", category: "知识类", description: "稳定可靠的新闻播报感男声，适合正式内容和知识科普", tags: ["专业", "知识"] },
-  { id: "zh-CN-YunxiaNeural", name: "云夏", gender: "male", style: "童趣", category: "故事类", description: "偏童真可爱的男声，适合儿童绘本和轻松故事", tags: ["童趣", "故事"] },
-  { id: "zh-CN-liaoning-XiaobeiNeural", name: "辽宁小北", gender: "female", style: "方言", category: "播客类", description: "辽宁方言女声，适合地域特色播客和轻松内容", tags: ["方言", "播客"] },
-  { id: "zh-CN-shaanxi-XiaoniNeural", name: "陕西小妮", gender: "female", style: "方言", category: "故事类", description: "陕西方言女声，适合方言故事和地方文化内容", tags: ["方言", "故事"] },
-];
 
-const allVoices = ref(fallbackVoices);
+
+const allVoices = ref([]);
 
 async function loadVoices() {
-  allVoices.value = (await fetchVoices()).map((voice) => ({
+  allVoices.value = (await fetchPersonalVoices()).map((voice) => ({
     ...voice,
     tags: voice.tags || [voice.style, voice.category].filter(Boolean),
+    fromPublic: !!voice.sourceVoiceId,
   }));
 }
 
@@ -149,16 +142,12 @@ const filteredVoices = computed(() => {
   return voices;
 });
 
-async function deleteVoice(voice) {
-  if (!confirm(`确定删除「${voice.name}」吗？`)) return;
-  loadError.value = "";
+async function deleteVoice(id) {
   try {
-    if (voice.dbId) await deleteVoiceById(voice.dbId);
-    allVoices.value = allVoices.value.filter((item) => item.id !== voice.id);
-    store.favoriteVoices = store.favoriteVoices.filter((id) => id !== voice.id);
-    if (store.selectedVoice?.id === voice.id) store.selectedVoice = null;
+    await deletePersonalVoice(id);
+    allVoices.value = allVoices.value.filter((voice) => voice.id !== id);
   } catch (error) {
-    loadError.value = error.message || "删除音色失败";
+    alert("Failed to delete: " + error.message);
   }
 }
 
@@ -263,5 +252,6 @@ function goToWorkspace(voice) {
   color: #b91c1c;
   font-size: 14px;
 }
-
+
+
 </style>

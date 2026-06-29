@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 
 from app.work_schemas import Work
@@ -19,7 +19,18 @@ def ensure_storage() -> None:
 def list_works() -> list[Work]:
     ensure_storage()
     raw = json.loads(WORKS_FILE.read_text(encoding="utf-8"))
-    return [Work(**item) for item in raw]
+    works = []
+    stale_ids = []
+    for item in raw:
+        work = Work(**item)
+        media_path = MEDIA_DIR / f"{work.id}.mp3"
+        if media_path.exists():
+            works.append(work)
+        else:
+            stale_ids.append(work.id)
+    if stale_ids:
+        _write_works(works)
+    return works
 
 
 def save_work(work: Work) -> Work:
@@ -32,6 +43,9 @@ def save_work(work: Work) -> Work:
 def get_work(work_id: str) -> Work | None:
     for work in list_works():
         if work.id == work_id:
+            media_path = MEDIA_DIR / f"{work.id}.mp3"
+            if not media_path.exists():
+                return None
             return work
     return None
 
