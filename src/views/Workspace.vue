@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="workspace-page">
     <div class="page-header">
       <h1 class="page-title"><Pen :size="28" class="title-icon" /> 创作工作台</h1>
@@ -30,8 +30,7 @@
           </div>
           <TextEditor
             v-model="textContent"
-            placeholder="请在此粘贴或输入您要配音的文本内容..."
-          />
+            placeholder="请在此粘贴或输入您要配音的文本内容..." showLang v-model:outputLang="outputLang" />
         </div>
 
         <!-- Voice Selection -->
@@ -234,8 +233,7 @@ const isPlaying = ref(false);
 const generatedWork = ref(null);
 const previewVoice = ref(null);
 const generationError = ref("");
-
-
+const outputLang = ref("zh");
 onMounted(async () => {
   try {
     availableVoices.value = (await fetchVoices()).map((voice) => ({
@@ -288,6 +286,7 @@ async function generateAudio() {
       emotion: settings.value.emotion,
       bgmType: settings.value.bgmType,
       bgmVolume: settings.value.bgmVolume,
+      outputLang: outputLang.value,
     });
     generatedWork.value = work;
     store.addWork(work);
