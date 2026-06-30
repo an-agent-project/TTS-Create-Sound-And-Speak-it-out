@@ -18,6 +18,7 @@ from app.data import SCENE_BY_ID, SCENES, VOICE_BY_ID
 from app.auth import get_current_user
 from app.database import engine, get_db
 from app.models import Base, User
+from app.schema_migrations import ensure_runtime_schema
 from app.models import Material
 from sqlalchemy.orm import Session
 from app.services.text_processing import preprocess_text
@@ -35,6 +36,7 @@ ensure_storage()
 
 # Create SQL tables on startup for the auth and voice-library APIs.
 Base.metadata.create_all(bind=engine)
+ensure_runtime_schema(engine)
 
 app = FastAPI(title="TTS Podcast API", version="1.0.0")
 

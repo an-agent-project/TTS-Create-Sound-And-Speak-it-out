@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS voices (
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   role VARCHAR(20) NOT NULL DEFAULT user,
   owner_id BIGINT UNSIGNED NULL,
+  source_voice_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -40,6 +41,7 @@ CREATE TABLE IF NOT EXISTS voices (
   KEY idx_voice_category (category),
   KEY idx_voice_recommended (is_recommended),
   KEY idx_voice_owner (owner_id),
+  KEY idx_voice_source_voice (source_voice_id),
   CONSTRAINT fk_voice_owner
     FOREIGN KEY (owner_id) REFERENCES users(id)
     ON DELETE CASCADE
