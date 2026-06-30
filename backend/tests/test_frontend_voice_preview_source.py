@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 VOICE_PREVIEW_PATH = ROOT_DIR / "src" / "components" / "VoicePreview.vue"
+AUDIO_PLAYER_PATH = ROOT_DIR / "src" / "components" / "AudioPlayer.vue"
 API_PATH = ROOT_DIR / "src" / "services" / "api.js"
 TEXT_EDITOR_PATH = ROOT_DIR / "src" / "components" / "TextEditor.vue"
 WORKSPACE_PATH = ROOT_DIR / "src" / "views" / "Workspace.vue"
@@ -19,6 +20,13 @@ def test_voice_preview_calls_tts_preview_api_and_plays_audio():
     assert ":audio-url=\"audioUrl\"" in source
 
 
+
+def test_audio_player_uses_external_playing_state_for_managed_audio():
+    source = AUDIO_PLAYER_PATH.read_text(encoding="utf-8")
+
+    assert "displayPlaying" in source
+    assert "props.managedExternally ? props.isPlaying : playing.value" in source
+    assert "v-if=\"displayPlaying\"" in source
 def test_voice_api_maps_active_provider_voice_id():
     source = API_PATH.read_text(encoding="utf-8")
 
@@ -100,8 +108,16 @@ def test_voice_library_deletes_user_voice_via_voice_api_and_protects_system_voic
     assert "dbId: voice.id" in api_source
     assert "isSystemVoice" in api_source
     assert "deleteVoiceById(voice.dbId)" in library_source
+    assert "pendingDeleteVoice" in library_source
+    assert "confirmDeleteVoice" in library_source
+    assert "cancelDeleteVoice" in library_source
+    assert "confirm(" not in library_source
+    assert "alert(" not in library_source
+    assert "&#x5220;&#x9664;&#x540E;&#x4E0D;&#x53EF;&#x6062;&#x590D;" in library_source
     assert "voice.isSystemVoice" in card_source
-    assert "title=\"系统默认音色不可删除\"" in card_source
+    assert ":title=\"'\\u7cfb\\u7edf\\u9ed8\\u8ba4\\u97f3\\u8272\\u4e0d\\u53ef\\u5220\\u9664'\"" in card_source
+    assert "\\u9ed8\\u8ba4\\u97f3\\u8272" in card_source
+    assert "\\u5220\\u9664" in card_source
 
 def test_admin_voice_page_uses_admin_voice_query_aliases():
     source = (ROOT_DIR / "src" / "views" / "admin" / "VoicesPage.vue").read_text(encoding="utf-8")

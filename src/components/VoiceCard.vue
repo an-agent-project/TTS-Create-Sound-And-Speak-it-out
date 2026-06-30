@@ -42,10 +42,10 @@
         <button
           class="btn btn-danger btn-sm"
           :disabled="voice.isSystemVoice"
-          title="系统默认音色不可删除"
+          :title="'\u7cfb\u7edf\u9ed8\u8ba4\u97f3\u8272\u4e0d\u53ef\u5220\u9664'"
           @click.stop="!voice.isSystemVoice && emit('deleteVoice')"
         >
-          <Trash2 :size="14" /> {{ voice.isSystemVoice ? "榛樿闊宠壊" : "鍒犻櫎" }}</button>
+          <Trash2 :size="14" /> {{ voice.isSystemVoice ? "\u9ed8\u8ba4\u97f3\u8272" : "\u5220\u9664" }}</button>
       </div>
     </div>
   </div>
