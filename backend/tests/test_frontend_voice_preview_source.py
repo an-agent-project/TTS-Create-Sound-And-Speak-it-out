@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 VOICE_PREVIEW_PATH = ROOT_DIR / "src" / "components" / "VoicePreview.vue"
+AUDIO_PLAYER_PATH = ROOT_DIR / "src" / "components" / "AudioPlayer.vue"
 API_PATH = ROOT_DIR / "src" / "services" / "api.js"
 TEXT_EDITOR_PATH = ROOT_DIR / "src" / "components" / "TextEditor.vue"
 WORKSPACE_PATH = ROOT_DIR / "src" / "views" / "Workspace.vue"
@@ -19,6 +20,13 @@ def test_voice_preview_calls_tts_preview_api_and_plays_audio():
     assert ":audio-url=\"audioUrl\"" in source
 
 
+
+def test_audio_player_uses_external_playing_state_for_managed_audio():
+    source = AUDIO_PLAYER_PATH.read_text(encoding="utf-8")
+
+    assert "displayPlaying" in source
+    assert "props.managedExternally ? props.isPlaying : playing.value" in source
+    assert "v-if=\"displayPlaying\"" in source
 def test_voice_api_maps_active_provider_voice_id():
     source = API_PATH.read_text(encoding="utf-8")
 
@@ -75,6 +83,8 @@ def test_extraction_page_exposes_bailian_clone_upload_not_voice_library():
     assert '克隆音色' in extraction_source
     assert 'createVoiceClone(formData)' not in library_source
     assert 'cloneVoice' not in library_source
+
+
 def test_extraction_page_generates_preview_for_cloned_voice_result():
     api_source = API_PATH.read_text(encoding="utf-8")
     extraction_source = (ROOT_DIR / "src" / "views" / "ExtractionPage.vue").read_text(encoding="utf-8")
@@ -85,3 +95,34 @@ def test_extraction_page_generates_preview_for_cloned_voice_result():
     assert 'voiceId: clonedVoice.providers?.[0]?.providerVoiceId' in extraction_source
     assert 'src: preview.audioUrl' in extraction_source
     assert 'URL.createObjectURL(uploadedFile.value)' not in extraction_source
+
+
+def test_voice_library_deletes_user_voice_via_voice_api_and_protects_system_voices():
+    api_source = API_PATH.read_text(encoding="utf-8")
+    library_source = (ROOT_DIR / "src" / "views" / "VoiceLibrary.vue").read_text(encoding="utf-8")
+    card_source = (ROOT_DIR / "src" / "components" / "VoiceCard.vue").read_text(encoding="utf-8")
+
+    assert "export function deleteVoiceById" in api_source
+    assert "return request(`/voices/${id}`" in api_source
+    assert "method: \"DELETE\"" in api_source
+    assert "dbId: voice.id" in api_source
+    assert "isSystemVoice" in api_source
+    assert "deleteVoiceById(voice.dbId)" in library_source
+    assert "pendingDeleteVoice" in library_source
+    assert "confirmDeleteVoice" in library_source
+    assert "cancelDeleteVoice" in library_source
+    assert "confirm(" not in library_source
+    assert "alert(" not in library_source
+    assert "&#x5220;&#x9664;&#x540E;&#x4E0D;&#x53EF;&#x6062;&#x590D;" in library_source
+    assert "voice.isSystemVoice" in card_source
+    assert ":title=\"'\\u7cfb\\u7edf\\u9ed8\\u8ba4\\u97f3\\u8272\\u4e0d\\u53ef\\u5220\\u9664'\"" in card_source
+    assert "\\u9ed8\\u8ba4\\u97f3\\u8272" in card_source
+    assert "\\u5220\\u9664" in card_source
+
+def test_admin_voice_page_uses_admin_voice_query_aliases():
+    source = (ROOT_DIR / "src" / "views" / "admin" / "VoicesPage.vue").read_text(encoding="utf-8")
+
+    assert "p.set('displayName', editName.value)" in source
+    assert "p.set('isActive', String(!v.isActive))" in source
+    assert "p.set('display_name'" not in source
+    assert "p.set('is_active'" not in source

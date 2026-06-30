@@ -32,7 +32,7 @@
           <p>{{ isRegister ? "注册后即可使用全部功能" : "登录账号继续创作" }}</p>
         </div>
 
-        <form v-if="!isRegister" class="auth-form" @submit.prevent="handleLogin">
+        <form v-if="!isRegister && !isResetPassword" class="auth-form" @submit.prevent="handleLogin">
           <div class="input-group">
             <label>邮箱或用户名</label>
             <div class="input-box">
@@ -72,7 +72,7 @@
           </button>
         </form>
 
-        <form v-else class="auth-form" @submit.prevent="handleRegister">
+        <form v-else-if="isRegister" class="auth-form" @submit.prevent="handleRegister">
           <div class="input-group">
             <label>邮箱</label>
             <div class="input-box">
@@ -139,7 +139,65 @@
           </button>
         </form>
 
-        <div class="form-footer">
+
+        <form v-else class="auth-form" @submit.prevent="handleResetPassword">
+          <div class="input-group">
+            <label>邮箱</label>
+            <div class="input-box">
+              <Mail :size="18" class="input-icon" />
+              <input v-model="resetForm.email" type="email" placeholder="请输入注册邮箱" required />
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>验证码</label>
+            <div class="code-row">
+              <div class="input-box code-input-box">
+                <ShieldCheck :size="18" class="input-icon" />
+                <input v-model="resetForm.code" type="text" placeholder="请输入6位验证码" maxlength="6" required />
+              </div>
+              <button type="button" class="send-code-btn" :disabled="codeCountdown > 0" @click="sendVerificationCode">
+                {{ codeCountdown > 0 ? codeCountdown + "s" : "发送验证码" }}
+              </button>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>新密码</label>
+            <div class="input-box">
+              <Lock :size="18" class="input-icon" />
+              <input
+                v-model="resetForm.newPassword"
+                :type="showPwd ? 'text' : 'password'"
+                placeholder="请设置新密码（至少4位）"
+                required
+              />
+              <span class="toggle-pwd" @click="showPwd = !showPwd">
+                <EyeOff v-if="showPwd" :size="18" />
+                <Eye v-else :size="18" />
+              </span>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>确认新密码</label>
+            <div class="input-box">
+              <Lock :size="18" class="input-icon" />
+              <input
+                v-model="resetForm.confirmPassword"
+                :type="showPwd ? 'text' : 'password'"
+                placeholder="请再次输入新密码"
+                required
+              />
+            </div>
+          </div>
+
+          <div v-if="errorMsg" class="err-msg">{{ errorMsg }}</div>
+          <div v-if="successMsg" class="success-msg">{{ successMsg }}</div>
+          <button type="submit" class="submit-btn" :disabled="resettingPassword">
+            {{ resettingPassword ? "重置中" : "重置密码" }}
+          </button>
+        </form>        <div class="form-footer">
           <template v-if="!isRegister">
             还没有账号？<a href="#" @click.prevent="switchToRegister">立即注册</a>
           </template>
@@ -159,24 +217,28 @@ import { onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ArrowLeft, Drama, Eye, EyeOff, Lock, Mail, Mic, Music, ShieldCheck, User, Volume2, VolumeX, Zap } from "lucide-vue-next";
 import { useAppStore } from "../stores/app";
+import { resetPassword, sendAuthCode } from "../services/api.js";
 
 const router = useRouter();
 const store = useAppStore();
 
 const isRegister = ref(false);
+const isResetPassword = ref(false);
 const showPwd = ref(false);
 const errorMsg = ref("");
 const successMsg = ref("");
 const rememberMe = ref(false);
 const loggingIn = ref(false);
 const registering = ref(false);
+const resettingPassword = ref(false);
 const codeCountdown = ref(0);
 let countdownTimer = null;
 
 const loginForm = reactive({ identifier: "", password: "" });
 const regForm = reactive({ email: "", code: "", username: "", password: "", confirmPassword: "" });
+const resetForm = reactive({ email: "", code: "", newPassword: "", confirmPassword: "" });
 
-watch(isRegister, () => {
+watch([isRegister, isResetPassword], () => {
   loginForm.identifier = "";
   loginForm.password = "";
   regForm.email = "";
@@ -192,15 +254,18 @@ watch(isRegister, () => {
 });
 
 function switchToRegister() {
+  isResetPassword.value = false;
   isRegister.value = true;
 }
 
 function switchToLogin() {
   isRegister.value = false;
+  isResetPassword.value = false;
 }
 
 function forgotPassword() {
-  alert("请联系管理员重置密码");
+  isRegister.value = false;
+  isResetPassword.value = true;
 }
 
 function validateEmail(email) {
@@ -210,7 +275,7 @@ function validateEmail(email) {
 async function sendVerificationCode() {
   errorMsg.value = "";
   successMsg.value = "";
-  const email = regForm.email.trim().toLowerCase();
+  const email = (isResetPassword.value ? resetForm.email : regForm.email).trim().toLowerCase();
   if (!email) {
     errorMsg.value = "请先输入邮箱地址";
     return;
@@ -220,13 +285,7 @@ async function sendVerificationCode() {
     return;
   }
   try {
-    const response = await fetch("/api/auth/send-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "发送失败");
+    const data = await sendAuthCode(email);
     successMsg.value = data.code
       ? `验证码已发送至 ${email}，开发验证码：${data.code}`
       : `验证码已发送至 ${email}`;
@@ -266,10 +325,47 @@ async function handleLogin() {
   }
 }
 
+
+async function handleResetPassword() {
+  errorMsg.value = "";
+  successMsg.value = "";
+  const email = resetForm.email.trim().toLowerCase();
+  const code = resetForm.code.trim();
+  if (!email || !code || !resetForm.newPassword.trim()) {
+    errorMsg.value = "请填写完整的重置密码信息";
+    return;
+  }
+  if (!validateEmail(email)) {
+    errorMsg.value = "邮箱格式不正确";
+    return;
+  }
+  if (code.length !== 6) {
+    errorMsg.value = "请输入6位验证码";
+    return;
+  }
+  if (resetForm.newPassword !== resetForm.confirmPassword) {
+    errorMsg.value = "两次密码输入不一致";
+    return;
+  }
+  if (resetForm.newPassword.length < 4) {
+    errorMsg.value = "密码长度不能少于4位";
+    return;
+  }
+  resettingPassword.value = true;
+  try {
+    await resetPassword({ email, code, newPassword: resetForm.newPassword });
+    successMsg.value = "密码已重置，请重新登录";
+    setTimeout(() => switchToLogin(), 800);
+  } catch (err) {
+    errorMsg.value = err.message || "重置密码失败";
+  } finally {
+    resettingPassword.value = false;
+  }
+}
 async function handleRegister() {
   errorMsg.value = "";
   successMsg.value = "";
-  const email = regForm.email.trim().toLowerCase();
+  const email = (isResetPassword.value ? resetForm.email : regForm.email).trim().toLowerCase();
   const username = regForm.username.trim();
   const code = regForm.code.trim();
   if (!email || !code || !username || !regForm.password.trim()) {

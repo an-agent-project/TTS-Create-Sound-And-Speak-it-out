@@ -160,6 +160,12 @@ def test_owned_voice_lifecycle():
     resp = client.get(f"/api/voices/{voice_id}", headers=_auth_headers(token))
     assert resp.status_code == 404
 
+    db_gen = app.dependency_overrides[get_db]
+    db_session = db_gen()
+    db_session = next(db_session) if hasattr(db_session, "__next__") else db_session
+    from app.models import Voice
+    assert db_session.get(Voice, voice_id) is None
+
 
 # ── System voice protection ──────────────────────────────────────
 

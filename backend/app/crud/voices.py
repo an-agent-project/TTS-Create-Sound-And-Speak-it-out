@@ -1,4 +1,6 @@
-﻿from sqlalchemy.orm import Session, selectinload
+from pathlib import Path
+
+from sqlalchemy.orm import Session, selectinload
 
 from app import models
 from app.schemas import VoiceCreate, VoiceUpdate
@@ -62,7 +64,12 @@ def get_voice_by_key(db: Session, voice_key: str) -> models.Voice | None:
     return db.query(models.Voice).filter(models.Voice.voice_key == voice_key).first()
 
 
-def create_voice(db: Session, payload: VoiceCreate, owner_id: int, source_voice_id: int | None = None) -> models.Voice:
+def create_voice(
+    db: Session,
+    payload: VoiceCreate,
+    owner_id: int,
+    source_voice_id: int | None = None,
+) -> models.Voice:
     voice = models.Voice(
         voice_key=payload.voice_key,
         display_name=payload.display_name,
@@ -109,16 +116,20 @@ def update_voice(
     return get_voice(db, voice.id, user_id=user_id)
 
 
-def soft_delete_voice(
+def hard_delete_voice(
     db: Session,
     voice: models.Voice,
     user_id: int,
 ) -> bool:
     if voice.owner_id != user_id:
         return False
-    voice.is_active = False
+
     for provider in voice.providers:
-        provider.is_active = False
+        for preview in list(provider.preview_audios):
+            Path(preview.audio_path).unlink(missing_ok=True)
+            db.delete(preview)
+        db.delete(provider)
+    db.delete(voice)
     db.commit()
     return True
 

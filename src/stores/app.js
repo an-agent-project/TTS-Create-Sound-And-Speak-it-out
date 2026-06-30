@@ -158,6 +158,7 @@ export const useAppStore = defineStore("app", () => {
   }
 
   async function updateMe(fields) {
+    const previousUser = { ...user.value };
     for (const key of Object.keys(fields)) {
       if (key in user.value) user.value[key] = fields[key];
     }
@@ -167,10 +168,26 @@ export const useAppStore = defineStore("app", () => {
         headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify(fields),
       });
-      if (resp.ok) setUser(await resp.json());
-    } catch {}
+      if (!resp.ok) {
+        let message = "资料保存失败";
+        try {
+          const data = await resp.json();
+          message = data.detail || message;
+        } catch {
+          // Keep fallback message when the response is not JSON.
+        }
+        user.value = previousUser;
+        localStorage.setItem("user", JSON.stringify(user.value));
+        throw new Error(message);
+      }
+      setUser(await resp.json());
+      return { success: true };
+    } catch (error) {
+      user.value = previousUser;
+      localStorage.setItem("user", JSON.stringify(user.value));
+      throw error;
+    }
   }
-
   function updatePhone(phone) {
     return updateMe({ phone });
   }

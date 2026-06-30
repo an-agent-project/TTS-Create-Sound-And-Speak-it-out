@@ -1,11 +1,11 @@
-﻿<template>
+<template>
   <div class="audio-player">
     <div class="player-controls">
       <button class="player-btn" @click="$emit('prev')" title="上一个">
         <SkipBack :size="20" />
       </button>
       <button class="player-btn play-btn" @click="togglePlay" title="播放/暂停">
-        <Pause v-if="playing" :size="24" />
+        <Pause v-if="displayPlaying" :size="24" />
         <Play v-else :size="24" />
       </button>
       <button class="player-btn" @click="$emit('next')" title="下一个">
@@ -93,6 +93,8 @@ const progressPercent = computed(() => {
   if (!displayDuration.value) return 0;
   return Math.min((displayCurrentTime.value / displayDuration.value) * 100, 100);
 });
+
+const displayPlaying = computed(() => props.managedExternally ? props.isPlaying : playing.value);
 
 const displayCurrentTime = computed(() =>
   audio.value && !props.managedExternally ? internalCurrentTime.value : props.currentTime,

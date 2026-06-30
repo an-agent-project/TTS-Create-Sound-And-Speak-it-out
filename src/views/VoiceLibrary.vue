@@ -62,7 +62,7 @@
           @toggle-favorite="store.toggleFavoriteVoice(voice.id)"
           @preview="previewVoice = voice"
           @select="goToWorkspace(voice)"
-          @delete-voice="deleteVoice(voice.id)"
+          @delete-voice="deleteVoice(voice)"
           @update-tags="(tags) => updateVoiceTags(voice.id, tags)"
         />
       </div>
@@ -78,6 +78,22 @@
       </div>
     </div>
 
+    <div v-if="pendingDeleteVoice" class="delete-confirm-backdrop" @click.self="cancelDeleteVoice">
+      <div class="delete-confirm-dialog" role="dialog" aria-modal="true">
+        <div class="delete-confirm-icon"><Trash2 :size="22" /></div>
+        <div class="delete-confirm-copy">
+          <h3>&#x5220;&#x9664;&#x97F3;&#x8272;</h3>
+          <p>&#x786E;&#x5B9A;&#x5220;&#x9664;&#x97F3;&#x8272;&#x300C;{{ pendingDeleteVoice.name || pendingDeleteVoice.displayName || pendingDeleteVoice.voiceKey || pendingDeleteVoice.id }}&#x300D;&#x5417;&#xFF1F;&#x5220;&#x9664;&#x540E;&#x4E0D;&#x53EF;&#x6062;&#x590D;&#x3002;</p>
+        </div>
+        <div class="delete-confirm-actions">
+          <button class="btn btn-secondary btn-sm" @click="cancelDeleteVoice">&#x53D6;&#x6D88;</button>
+          <button class="btn btn-danger btn-sm" :disabled="deletingVoice" @click="confirmDeleteVoice">
+            {{ deletingVoice ? "\u5220\u9664\u4e2d" : "\u786e\u8ba4\u5220\u9664" }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <VoicePreview
       v-if="previewVoice"
       :voice="previewVoice"
@@ -90,10 +106,10 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { Baby, Drama, Search, Settings2, Star, User } from "lucide-vue-next";
+import { Baby, Drama, Search, Settings2, Star, Trash2, User } from "lucide-vue-next";
 import VoiceCard from "../components/VoiceCard.vue";
 import VoicePreview from "../components/VoicePreview.vue";
-import { fetchPersonalVoices, deletePersonalVoice } from "../services/api.js";
+import { deleteVoiceById, fetchPersonalVoices } from "../services/api.js";
 import { useAppStore } from "../stores/app.js";
 
 const router = useRouter();
@@ -103,6 +119,8 @@ const filterGender = ref("all");
 const filterCategory = ref("all");
 const showFavoritesOnly = ref(false);
 const previewVoice = ref(null);
+const pendingDeleteVoice = ref(null);
+const deletingVoice = ref(false);
 const manageMode = ref(false);
 const loadError = ref("");
 
@@ -117,6 +135,8 @@ async function loadVoices() {
     ...voice,
     tags: voice.tags || [voice.style, voice.category].filter(Boolean),
     fromPublic: !!voice.sourceVoiceId,
+    dbId: voice.id,
+    isSystemVoice: voice.ownerId == null,
   }));
 }
 
@@ -142,12 +162,31 @@ const filteredVoices = computed(() => {
   return voices;
 });
 
-async function deleteVoice(id) {
+function deleteVoice(voice) {
+  if (voice.isSystemVoice) {
+    loadError.value = "\u7cfb\u7edf\u9ed8\u8ba4\u97f3\u8272\u4e0d\u53ef\u5220\u9664";
+    return;
+  }
+  pendingDeleteVoice.value = voice;
+}
+
+function cancelDeleteVoice() {
+  if (deletingVoice.value) return;
+  pendingDeleteVoice.value = null;
+}
+
+async function confirmDeleteVoice() {
+  const voice = pendingDeleteVoice.value;
+  if (!voice || deletingVoice.value) return;
+  deletingVoice.value = true;
   try {
-    await deletePersonalVoice(id);
-    allVoices.value = allVoices.value.filter((voice) => voice.id !== id);
+    await deleteVoiceById(voice.dbId);
+    allVoices.value = allVoices.value.filter((item) => item.dbId !== voice.dbId);
+    pendingDeleteVoice.value = null;
   } catch (error) {
-    alert("Failed to delete: " + error.message);
+    loadError.value = error.message || "\u5220\u9664\u97f3\u8272\u5931\u8d25";
+  } finally {
+    deletingVoice.value = false;
   }
 }
 
@@ -254,4 +293,74 @@ function goToWorkspace(voice) {
 }
 
 
+
+.delete-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.delete-confirm-dialog {
+  width: min(420px, 100%);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 8px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.22);
+}
+
+.delete-confirm-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.delete-confirm-copy h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.delete-confirm-copy p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.delete-confirm-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.btn-danger {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.btn-danger:hover {
+  background: #fecaca;
+}
+
+.btn-danger:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
 </style>
