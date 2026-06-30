@@ -75,6 +75,8 @@ def test_extraction_page_exposes_bailian_clone_upload_not_voice_library():
     assert '克隆音色' in extraction_source
     assert 'createVoiceClone(formData)' not in library_source
     assert 'cloneVoice' not in library_source
+
+
 def test_extraction_page_generates_preview_for_cloned_voice_result():
     api_source = API_PATH.read_text(encoding="utf-8")
     extraction_source = (ROOT_DIR / "src" / "views" / "ExtractionPage.vue").read_text(encoding="utf-8")
@@ -85,3 +87,26 @@ def test_extraction_page_generates_preview_for_cloned_voice_result():
     assert 'voiceId: clonedVoice.providers?.[0]?.providerVoiceId' in extraction_source
     assert 'src: preview.audioUrl' in extraction_source
     assert 'URL.createObjectURL(uploadedFile.value)' not in extraction_source
+
+
+def test_voice_library_deletes_user_voice_via_voice_api_and_protects_system_voices():
+    api_source = API_PATH.read_text(encoding="utf-8")
+    library_source = (ROOT_DIR / "src" / "views" / "VoiceLibrary.vue").read_text(encoding="utf-8")
+    card_source = (ROOT_DIR / "src" / "components" / "VoiceCard.vue").read_text(encoding="utf-8")
+
+    assert "export function deleteVoiceById" in api_source
+    assert "return request(`/voices/${id}`" in api_source
+    assert "method: \"DELETE\"" in api_source
+    assert "dbId: voice.id" in api_source
+    assert "isSystemVoice" in api_source
+    assert "deleteVoiceById(voice.dbId)" in library_source
+    assert "voice.isSystemVoice" in card_source
+    assert "title=\"系统默认音色不可删除\"" in card_source
+
+def test_admin_voice_page_uses_admin_voice_query_aliases():
+    source = (ROOT_DIR / "src" / "views" / "admin" / "VoicesPage.vue").read_text(encoding="utf-8")
+
+    assert "p.set('displayName', editName.value)" in source
+    assert "p.set('isActive', String(!v.isActive))" in source
+    assert "p.set('display_name'" not in source
+    assert "p.set('is_active'" not in source

@@ -62,7 +62,7 @@
           @toggle-favorite="store.toggleFavoriteVoice(voice.id)"
           @preview="previewVoice = voice"
           @select="goToWorkspace(voice)"
-          @delete-voice="deleteVoice(voice.id)"
+          @delete-voice="deleteVoice(voice)"
           @update-tags="(tags) => updateVoiceTags(voice.id, tags)"
         />
       </div>
@@ -93,7 +93,7 @@ import { useRouter } from "vue-router";
 import { Baby, Drama, Search, Settings2, Star, User } from "lucide-vue-next";
 import VoiceCard from "../components/VoiceCard.vue";
 import VoicePreview from "../components/VoicePreview.vue";
-import { fetchPersonalVoices, deletePersonalVoice } from "../services/api.js";
+import { deleteVoiceById, fetchPersonalVoices } from "../services/api.js";
 import { useAppStore } from "../stores/app.js";
 
 const router = useRouter();
@@ -117,6 +117,8 @@ async function loadVoices() {
     ...voice,
     tags: voice.tags || [voice.style, voice.category].filter(Boolean),
     fromPublic: !!voice.sourceVoiceId,
+    dbId: voice.id,
+    isSystemVoice: voice.ownerId == null,
   }));
 }
 
@@ -142,12 +144,16 @@ const filteredVoices = computed(() => {
   return voices;
 });
 
-async function deleteVoice(id) {
+async function deleteVoice(voice) {
+  if (voice.isSystemVoice) {
+    loadError.value = "系统默认音色不可删除";
+    return;
+  }
   try {
-    await deletePersonalVoice(id);
-    allVoices.value = allVoices.value.filter((voice) => voice.id !== id);
+    await deleteVoiceById(voice.dbId);
+    allVoices.value = allVoices.value.filter((item) => item.dbId !== voice.dbId);
   } catch (error) {
-    alert("Failed to delete: " + error.message);
+    loadError.value = error.message || "删除音色失败";
   }
 }
 

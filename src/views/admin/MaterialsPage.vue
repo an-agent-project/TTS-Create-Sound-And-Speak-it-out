@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="page">
     <h2>素材管理</h2>
     <div class="filters">
@@ -21,7 +21,7 @@
           <td>{{ fmtDate(m.createdAt) }}</td>
           <td><span :class="m.isActive ? 'badge ok' : 'badge del'">{{ m.isActive ? '正常' : '已删' }}</span></td>
           <td class="actions">
-            <button v-if="m.isActive" @click="softRemove(m.id)" class="btn-sm warn">删除</button>
+            <button v-if="m.isActive" @click="removeMaterial(m.id)" class="btn-sm warn">删除</button>
             <button @click="hardRemove(m.id)" class="btn-sm danger">彻底删除</button>
           </td>
         </tr>
@@ -60,7 +60,7 @@ async function load() {
   const data = await resp.json(); materials.value = data.items || []; totalItems.value = data.total || 0
 }
 
-async function softRemove(id) {
+async function removeMaterial(id) {
   if (!confirm('确定删除该素材？')) return
   await fetch(`/api/admin/materials/${id}`, { method: 'DELETE', headers: store.authHeaders() })
   await load()
@@ -99,8 +99,7 @@ tr.inactive{opacity:.45}
 .btn-sm.warn{background:#fefcbf;color:#975a16}
 .btn-sm.danger{background:#fed7d7;color:#9b2c2c}
 .empty{color:var(--text-secondary);font-size:14px}
-</style>
-
 .pagination{display:flex;align-items:center;gap:12px;margin-top:16px;font-size:13px;color:var(--text-secondary)}
 .pagination button{padding:6px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);cursor:pointer}
 .pagination button:disabled{opacity:.4;cursor:default}
+</style>

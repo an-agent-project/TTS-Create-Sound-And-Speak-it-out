@@ -170,6 +170,24 @@ class UserUpdate(CamelModel):
         return normalize_email(value)
 
 
+class ResetPasswordRequest(CamelModel):
+    email: str = Field(..., min_length=5, max_length=255)
+    code: str = Field(..., min_length=6, max_length=6)
+    new_password: str = Field(..., alias="newPassword", min_length=4, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return normalize_email(value) or ""
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, value: str) -> str:
+        if not value.isdigit():
+            raise ValueError("verification code must be 6 digits")
+        return value
+
+
 class ChangePasswordRequest(CamelModel):
     old_password: str = Field(..., alias="oldPassword", min_length=1)
     new_password: str = Field(..., alias="newPassword", min_length=4, max_length=128)

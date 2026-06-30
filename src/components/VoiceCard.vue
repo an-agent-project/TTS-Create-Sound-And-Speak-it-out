@@ -39,8 +39,13 @@
         <button class="btn btn-outline btn-sm" @click.stop="toggleEdit">
           <Settings2 :size="14" /> {{ editing ? '取消' : '编辑标签' }}
         </button>
-        <button class="btn btn-danger btn-sm" @click.stop="emit('deleteVoice')">
-          <Trash2 :size="14" /> 删除</button>
+        <button
+          class="btn btn-danger btn-sm"
+          :disabled="voice.isSystemVoice"
+          title="系统默认音色不可删除"
+          @click.stop="!voice.isSystemVoice && emit('deleteVoice')"
+        >
+          <Trash2 :size="14" /> {{ voice.isSystemVoice ? "榛樿闊宠壊" : "鍒犻櫎" }}</button>
       </div>
     </div>
   </div>
@@ -87,6 +92,7 @@ function addTag() { const tags = [...editableTags.value]; tags.push(''); editing
 <style scoped>
 .voice-card { position: relative; padding: 20px; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
 .voice-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.12); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
 .voice-card.featured { border-color: var(--primary); background: linear-gradient(135deg, #fff 0%, var(--primary-light) 100%); }
 .voice-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
 .voice-avatar { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }

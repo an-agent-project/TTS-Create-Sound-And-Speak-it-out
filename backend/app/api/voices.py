@@ -98,7 +98,7 @@ def delete_voice(
     voice = voice_crud.get_voice(db, voice_id, user_id=current_user.id)
     if not voice:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="voice not found")
-    ok = voice_crud.soft_delete_voice(db, voice, user_id=current_user.id)
+    ok = voice_crud.hard_delete_voice(db, voice, user_id=current_user.id)
     if not ok:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="cannot delete a system voice")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
