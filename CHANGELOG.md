@@ -1,10 +1,20 @@
-# 更新日志
+﻿# 更新日志
 
 本文档记录有声读物智能生成系统的重要功能变化。
 
 日志格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号根据现有 Git 历史整理；历史版本尚未创建对应的 Git Tag。
 
 ## [未发布]
+
+
+### 新增
+
+- 创作工作台新增语言选择器，支持将中文文本翻译为 6 种语言后合成语音（en/ja/ko/fr/de/zh）
+
+### 修复
+
+- 修复 ackend/app/api/admin.py 和 eports.py UTF-16 编码问题，转换为 UTF-8 避免 null bytes 语法错误
+- 修复 .env 中 MySQL 连接密码为空导致的启动失败
 
 ### 新增
 
