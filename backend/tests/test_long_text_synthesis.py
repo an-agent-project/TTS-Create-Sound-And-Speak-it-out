@@ -64,6 +64,11 @@ def test_split_segments_keeps_closing_punctuation_with_previous_words():
     assert all(not segment.text.startswith(("，", "。")) for segment in segments)
 
 
+def test_split_segments_applies_pause_scale():
+    segments = split_segments("First sentence. Second sentence?", max_length=16, pause_scale=1.5)
+
+    assert [segment.pauseMs for segment in segments] == [900, 1350]
+
 def test_segment_synthesis_keeps_order_and_pauses(monkeypatch, tmp_path):
     synthesized = []
     concatenated = {}

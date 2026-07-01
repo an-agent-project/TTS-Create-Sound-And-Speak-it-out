@@ -35,7 +35,7 @@ def clean_text(content: str) -> str:
     return text.strip()
 
 
-def split_segments(content: str, max_length: int = 120) -> list[TextSegment]:
+def split_segments(content: str, max_length: int = 120, pause_scale: float = 1.0) -> list[TextSegment]:
     cleaned = clean_text(content)
     if not cleaned:
         return []
@@ -56,16 +56,16 @@ def split_segments(content: str, max_length: int = 120) -> list[TextSegment]:
             if not sentence:
                 continue
             if buffer and len(buffer) + len(sentence) > max_length:
-                _flush_piece(segments, buffer, max_length)
+                _flush_piece(segments, buffer, max_length, pause_scale)
                 buffer = ""
             buffer += sentence
             if len(buffer) >= max_length:
-                _flush_piece(segments, buffer, max_length)
+                _flush_piece(segments, buffer, max_length, pause_scale)
                 buffer = ""
 
-        _flush_piece(segments, buffer, max_length)
+        _flush_piece(segments, buffer, max_length, pause_scale)
         if len(segments) > paragraph_start:
-            segments[-1].pauseMs = max(segments[-1].pauseMs, PARAGRAPH_PAUSE_MS)
+            segments[-1].pauseMs = max(segments[-1].pauseMs, round(PARAGRAPH_PAUSE_MS * pause_scale))
 
     return segments
 
@@ -83,11 +83,11 @@ def find_sensitive_words(content: str) -> list[SensitiveHit]:
     return sorted(hits, key=lambda hit: hit.index)
 
 
-def preprocess_text(content: str, max_segment_length: int = 120) -> PreprocessResponse:
+def preprocess_text(content: str, max_segment_length: int = 120, pause_scale: float = 1.0) -> PreprocessResponse:
     cleaned = clean_text(content)
     return PreprocessResponse(
         cleanedText=cleaned,
-        segments=split_segments(cleaned, max_segment_length),
+        segments=split_segments(cleaned, max_segment_length, pause_scale),
         sensitiveWords=find_sensitive_words(cleaned),
     )
 
@@ -121,16 +121,17 @@ def _word_boundary_candidates(text: str, max_length: int) -> list[int]:
     return candidates
 
 
-def _flush_piece(segments: list[TextSegment], value: str, max_length: int) -> None:
+def _flush_piece(segments: list[TextSegment], value: str, max_length: int, pause_scale: float) -> None:
     piece = value.strip()
     while len(piece) > max_length:
         split_at = _find_split_index(piece, max_length)
-        _append_segment(segments, piece[:split_at].strip())
+        _append_segment(segments, piece[:split_at].strip(), pause_scale)
         piece = piece[split_at:].strip()
     if piece:
-        _append_segment(segments, piece)
+        _append_segment(segments, piece, pause_scale)
 
 
-def _append_segment(segments: list[TextSegment], text: str) -> None:
+def _append_segment(segments: list[TextSegment], text: str, pause_scale: float = 1.0) -> None:
     pause = PAUSE_BY_ENDING.get(text[-1], WORD_BOUNDARY_PAUSE_MS) if text else WORD_BOUNDARY_PAUSE_MS
+    pause = max(0, round(pause * pause_scale))
     segments.append(TextSegment(index=len(segments), text=text, pauseMs=pause))

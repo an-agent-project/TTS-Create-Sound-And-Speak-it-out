@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import os
 import shutil
 import tempfile
@@ -33,6 +33,8 @@ async def synthesize_to_file(
     emotion: str,
     output_path: Path,
     provider: str = "edge_tts",
+    output_lang: str = "zh",
+    voice_volume: int = 100,
 ) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     await _synthesize_text(
@@ -43,6 +45,8 @@ async def synthesize_to_file(
         emotion=emotion,
         output_path=output_path,
         provider=provider,
+        output_lang=output_lang,
+        voice_volume=voice_volume,
     )
     if not _has_media_tools():
         return _estimate_duration_seconds(text, speed)
@@ -58,6 +62,8 @@ async def synthesize_segments_to_file(
     output_path: Path,
     max_concurrency: int = 3,
     provider: str = "edge_tts",
+    output_lang: str = "zh",
+    voice_volume: int = 100,
 ) -> int:
     if not segments:
         raise ValueError("no text segments to synthesize")
@@ -75,6 +81,10 @@ async def synthesize_segments_to_file(
         }
         if provider != "edge_tts":
             retry_kwargs["provider"] = provider
+        if output_lang != "zh":
+            retry_kwargs["output_lang"] = output_lang
+        if voice_volume != 100:
+            retry_kwargs["voice_volume"] = voice_volume
         await _synthesize_with_retry(**retry_kwargs)
         return _estimate_duration_seconds(combined_text, speed)
 
@@ -96,6 +106,10 @@ async def synthesize_segments_to_file(
                 }
                 if provider != "edge_tts":
                     retry_kwargs["provider"] = provider
+                if output_lang != "zh":
+                    retry_kwargs["output_lang"] = output_lang
+                if voice_volume != 100:
+                    retry_kwargs["voice_volume"] = voice_volume
                 await _synthesize_with_retry(**retry_kwargs)
 
         await asyncio.gather(
@@ -109,7 +123,6 @@ async def synthesize_segments_to_file(
         )
 
     return max(1, round(duration))
-
 
 async def mix_bgm_to_file(
     voice_path: Path,
@@ -185,10 +198,22 @@ async def _synthesize_with_retry(
     output_path: Path,
     attempts: int = 3,
     provider: str = "edge_tts",
+    output_lang: str = "zh",
+    voice_volume: int = 100,
 ) -> None:
     for attempt in range(attempts):
         try:
-            await _synthesize_text(text, voice, speed, pitch, emotion, output_path, provider=provider)
+            await _synthesize_text(
+                text,
+                voice,
+                speed,
+                pitch,
+                emotion,
+                output_path,
+                provider=provider,
+                output_lang=output_lang,
+                voice_volume=voice_volume,
+            )
             return
         except Exception:
             output_path.unlink(missing_ok=True)
@@ -205,13 +230,17 @@ async def _synthesize_text(
     emotion: str,
     output_path: Path,
     provider: str = "edge_tts",
+    output_lang: str = "zh",
+    voice_volume: int = 100,
 ) -> None:
     if provider == BAILIAN_TTS_PROVIDER:
         await synthesize_bailian_to_file(
             text=text,
             provider_voice_id=voice,
             output_path=output_path,
+            output_lang=output_lang,
         )
+        await _apply_voice_volume(output_path, voice_volume)
         return
     if provider != "edge_tts":
         raise RuntimeError(f"Unsupported TTS provider: {provider}")
@@ -220,15 +249,39 @@ async def _synthesize_text(
     rate_percent = max(-50, min(100, rate_percent))
     pitch_hz = pitch + EMOTION_PITCH_MAP.get(emotion, 0)
     pitch_hz = max(-100, min(100, pitch_hz))
+    volume_percent = max(-100, min(50, voice_volume - 100))
 
     communicate = edge_tts.Communicate(
         text=text,
         voice=voice,
         rate=f"{rate_percent:+d}%",
         pitch=f"{pitch_hz:+d}Hz",
+        volume=f"{volume_percent:+d}%",
     )
     await communicate.save(str(output_path))
 
+
+async def _apply_voice_volume(path: Path, voice_volume: int) -> None:
+    if voice_volume == 100 or not _has_media_tools():
+        return
+    temp_path = path.with_name(f"{path.stem}-volume{path.suffix}")
+    gain = max(0.0, min(1.5, voice_volume / 100))
+    await _run_command(
+        _media_command("ffmpeg"),
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        str(path),
+        "-af",
+        f"volume={gain:.3f},alimiter=limit=0.92",
+        "-codec:a",
+        "libmp3lame",
+        "-b:a",
+        "96k",
+        str(temp_path),
+    )
+    temp_path.replace(path)
 
 async def _concat_segments(
     segment_paths: Sequence[Path],

@@ -13,11 +13,27 @@ BAILIAN_TTS_PROVIDER = "bailian_tts"
 BAILIAN_TTS_DEFAULT_MODEL = "qwen3-tts-flash"
 BAILIAN_TTS_DEFAULT_VOICE = "Cherry"
 BAILIAN_TTS_DEFAULT_LANGUAGE = "Chinese"
+BAILIAN_LANGUAGE_TYPE_BY_OUTPUT_LANG = {
+    "zh": "Chinese",
+    "en": "English",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "fr": "French",
+    "de": "German",
+    "es": "Spanish",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "ru": "Russian",
+}
 BAILIAN_VOICE_CLONE_MODEL = "qwen-voice-enrollment"
 BAILIAN_VOICE_CLONE_TARGET_MODEL = "qwen3-tts-vc-2026-01-22"
 BAILIAN_TTS_DEFAULT_PROVIDER_VOICE_ID = (
     f"bailian:{BAILIAN_TTS_DEFAULT_MODEL}:{BAILIAN_TTS_DEFAULT_VOICE}"
 )
+
+
+def _language_type_for_output_lang(output_lang: str | None) -> str:
+    return BAILIAN_LANGUAGE_TYPE_BY_OUTPUT_LANG.get(output_lang or "zh", BAILIAN_TTS_DEFAULT_LANGUAGE)
 
 
 def parse_bailian_provider_voice_id(provider_voice_id: str) -> tuple[str, str]:
@@ -36,13 +52,14 @@ async def synthesize_bailian_to_file(
     text: str,
     provider_voice_id: str,
     output_path: Path,
+    output_lang: str = "zh",
 ) -> None:
     api_key = os.getenv("DASHSCOPE_API_KEY") or os.getenv("BAILIAN_API_KEY")
     if not api_key:
         raise RuntimeError("DASHSCOPE_API_KEY is not configured")
 
     model, voice = parse_bailian_provider_voice_id(provider_voice_id)
-    language_type = os.getenv("BAILIAN_TTS_LANGUAGE", BAILIAN_TTS_DEFAULT_LANGUAGE)
+    language_type = os.getenv("BAILIAN_TTS_LANGUAGE") or _language_type_for_output_lang(output_lang)
     workspace = os.getenv("DASHSCOPE_WORKSPACE") or os.getenv("BAILIAN_WORKSPACE")
 
     response = await _call_qwen_tts(

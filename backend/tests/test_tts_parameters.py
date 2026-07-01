@@ -10,10 +10,16 @@ def test_generate_request_accepts_numeric_pitch():
         voiceId="zh-CN-XiaoxiaoNeural",
         speed=1.5,
         pitch=25,
+        voiceVolume=85,
+        maxSegmentLength=80,
+        pauseScale=1.5,
     )
 
     assert payload.speed == 1.5
     assert payload.pitch == 25
+    assert payload.voiceVolume == 85
+    assert payload.maxSegmentLength == 80
+    assert payload.pauseScale == 1.5
 
 
 def test_synthesize_passes_speed_and_pitch_to_edge_tts(monkeypatch, tmp_path):
@@ -41,8 +47,10 @@ def test_synthesize_passes_speed_and_pitch_to_edge_tts(monkeypatch, tmp_path):
             pitch=25,
             emotion="calm",
             output_path=tmp_path / "result.mp3",
+            voice_volume=85,
         )
     )
 
     assert captured["rate"] == "+50%"
     assert captured["pitch"] == "+25Hz"
+    assert captured["volume"] == "-15%"

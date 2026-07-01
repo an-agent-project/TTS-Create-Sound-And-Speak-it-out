@@ -16,9 +16,12 @@ export const useAppStore = defineStore("app", () => {
   const settings = ref({
     speed: 1.0,
     pitch: 0,
+    voiceVolume: 100,
     emotion: "calm",
     bgmType: "none",
     bgmVolume: 30,
+    maxSegmentLength: 120,
+    pauseScale: 1.0,
   });
 
   const isLoggedIn = ref(false);
@@ -258,9 +261,12 @@ export const useAppStore = defineStore("app", () => {
     settings.value = {
       speed: 1.0,
       pitch: 0,
+      voiceVolume: 100,
       emotion: "calm",
       bgmType: "none",
       bgmVolume: 30,
+      maxSegmentLength: 120,
+      pauseScale: 1.0,
     };
   }
 

@@ -88,3 +88,31 @@ def test_create_qwen_voice_clone_posts_data_uri(monkeypatch):
     assert captured["json"]["input"]["target_model"] == "qwen3-tts-vc-2026-01-22"
     assert captured["json"]["input"]["preferred_name"] == "my_voice"
     assert captured["json"]["input"]["audio"]["data"] == "data:audio/mpeg;base64,YWJj"
+
+
+def test_bailian_synthesis_maps_output_language_to_language_type(monkeypatch, tmp_path):
+    captured = {}
+
+    async def fake_call_qwen_tts(**kwargs):
+        captured.update(kwargs)
+        return {"output": {"audio": {"url": "https://example.test/audio.mp3"}}}
+
+    async def fake_download_audio(audio_url, output_path):
+        output_path.write_bytes(b"audio")
+
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "sk-test")
+    monkeypatch.delenv("BAILIAN_TTS_LANGUAGE", raising=False)
+    monkeypatch.setattr(bailian_tts, "_call_qwen_tts", fake_call_qwen_tts)
+    monkeypatch.setattr(bailian_tts, "_download_audio", fake_download_audio)
+
+    asyncio.run(
+        bailian_tts.synthesize_bailian_to_file(
+            text="Hello from Qwen",
+            provider_voice_id="bailian:qwen3-tts-flash:Cherry",
+            output_path=tmp_path / "qwen-en.mp3",
+            output_lang="en",
+        )
+    )
+
+    assert captured["language_type"] == "English"
+    assert captured["voice"] == "Cherry"

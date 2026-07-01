@@ -22,10 +22,11 @@ from app.schema_migrations import ensure_runtime_schema
 from app.models import Material
 from sqlalchemy.orm import Session
 from app.services.text_processing import preprocess_text
-from app.services.translator import LANG_VOICE_MAP, translate_text
+from app.services.bailian_tts import BAILIAN_TTS_PROVIDER
+from app.services.translator import LANGUAGES, LANG_VOICE_MAP, translate_text
 from app.services.tts import mix_bgm_to_file, synthesize_segments_to_file
 from app.storage import MEDIA_DIR, delete_work, ensure_storage, get_work, list_works, save_work
-from app.work_schemas import GenerateRequest, PreprocessRequest, Work
+from app.work_schemas import GenerateRequest, PreprocessRequest, TranslateRequest, TranslateResponse, Work
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -75,14 +76,38 @@ def preprocess(payload: PreprocessRequest):
     return preprocess_text(payload.content, payload.maxSegmentLength)
 
 
+@app.post("/api/text/translate", response_model=TranslateResponse)
+def translate_preview(payload: TranslateRequest) -> TranslateResponse:
+    target_lang = payload.targetLang or "zh"
+    if target_lang not in LANGUAGES:
+        raise HTTPException(status_code=400, detail="unsupported target language")
+    try:
+        translated_text = translate_text(payload.content, target_lang)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Translation failed: {exc}") from exc
+    return TranslateResponse(
+        sourceText=payload.content,
+        targetLang=target_lang,
+        translatedText=translated_text,
+    )
+
+
 @app.post("/api/tts/generate", response_model=Work)
 async def generate_tts(payload: GenerateRequest, request: Request, db: Session = Depends(get_db)) -> Work:
     output_lang = payload.outputLang or "zh"
 
-    voice_id_for_tts = payload.voiceId if output_lang == "zh" else LANG_VOICE_MAP.get(output_lang, payload.voiceId)
-    provider_profile = tts_preview_crud.get_provider_profile_by_voice_id(db, voice_id_for_tts)
-    voice = VOICE_BY_ID.get(voice_id_for_tts)
+    selected_voice_id = payload.voiceId
+    provider_profile = tts_preview_crud.get_provider_profile_by_voice_id(db, selected_voice_id)
+    voice = VOICE_BY_ID.get(selected_voice_id)
     provider = provider_profile.provider if provider_profile else "edge_tts"
+
+    if output_lang != "zh" and provider != BAILIAN_TTS_PROVIDER:
+        selected_voice_id = LANG_VOICE_MAP.get(output_lang, selected_voice_id)
+        provider_profile = tts_preview_crud.get_provider_profile_by_voice_id(db, selected_voice_id)
+        voice = VOICE_BY_ID.get(selected_voice_id)
+        provider = provider_profile.provider if provider_profile else "edge_tts"
+
+    voice_id_for_tts = selected_voice_id
     voice_name = provider_profile.voice.display_name if provider_profile else (voice["name"] if voice else voice_id_for_tts)
     if provider_profile is None and voice is None and output_lang == "zh":
         raise HTTPException(status_code=400, detail="unsupported voice id")
@@ -90,11 +115,14 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
     scene = SCENE_BY_ID.get(payload.sceneId or "")
     content_to_speak = payload.content
     if output_lang != "zh":
-        try:
-            content_to_speak = translate_text(payload.content, output_lang)
-        except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Translation failed: {exc}") from exc
-    processed = preprocess_text(content_to_speak)
+        if payload.translatedContent and payload.translatedContent.strip():
+            content_to_speak = payload.translatedContent
+        else:
+            try:
+                content_to_speak = translate_text(payload.content, output_lang)
+            except Exception as exc:
+                raise HTTPException(status_code=502, detail=f"Translation failed: {exc}") from exc
+    processed = preprocess_text(content_to_speak, payload.maxSegmentLength, payload.pauseScale)
     if not processed.cleanedText:
         raise HTTPException(status_code=400, detail="text content cannot be empty")
     if processed.sensitiveWords:
@@ -113,6 +141,8 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
             emotion=payload.emotion,
             output_path=dry_output_path,
             provider=provider,
+            output_lang=output_lang,
+            voice_volume=payload.voiceVolume,
         )
         bgm_path = _find_bgm_path(db, payload.bgmType)
         duration = round(await mix_bgm_to_file(dry_output_path, bgm_path, output_path, payload.bgmVolume))

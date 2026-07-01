@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="text-editor">
     <div class="editor-toolbar">
       <span class="toolbar-info">
@@ -12,6 +12,10 @@
             <option value="ko">한국어</option>
             <option value="fr">Français</option>
             <option value="de">Deutsch</option>
+            <option value="es">Español</option>
+            <option value="it">Italiano</option>
+            <option value="pt">Português</option>
+            <option value="ru">Русский</option>
           </select>
         </span>
         {{ charCount > 500 ? '| 预计时长：约' + estimatedDuration + ' 分钟' : '' }}

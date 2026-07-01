@@ -125,6 +125,13 @@ export function deleteVoiceById(id) {
     headers: authHeaders(),
   });
 }
+export function translateText(payload) {
+  return request("/text/translate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function preprocessText(content) {
   return request("/text/preprocess", {
     method: "POST",

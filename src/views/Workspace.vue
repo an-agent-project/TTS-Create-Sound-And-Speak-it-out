@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="workspace-page">
     <div class="page-header">
       <h1 class="page-title"><Pen :size="28" class="title-icon" /> 创作工作台</h1>
@@ -31,6 +31,28 @@
           <TextEditor
             v-model="textContent"
             placeholder="请在此粘贴或输入您要配音的文本内容..." showLang v-model:outputLang="outputLang" />
+          <div v-if="outputLang !== 'zh'" class="translation-panel">
+            <div class="translation-header">
+              <div>
+                <strong>翻译预览</strong>
+                <span>{{ targetLanguageLabel }} · 可编辑后再生成</span>
+              </div>
+              <button class="btn btn-secondary btn-sm" type="button" :disabled="isTranslating || !textContent.trim()" @click="previewTranslation">
+                <Loader v-if="isTranslating" :size="14" class="spin" />
+                <span>{{ isTranslating ? '翻译中...' : '翻译预览' }}</span>
+              </button>
+            </div>
+            <textarea
+              v-model="translatedContent"
+              class="translation-textarea"
+              rows="7"
+              :placeholder="`点击翻译预览生成${targetLanguageLabel}译文，也可以直接在这里粘贴译文。`"
+            ></textarea>
+            <div class="translation-footer">
+              <span :class="translationError ? 'translation-error' : 'translation-status'">{{ translationStatus }}</span>
+              <span>{{ translatedContent.length }} 字符</span>
+            </div>
+          </div>
         </div>
 
         <!-- Voice Selection -->
@@ -97,6 +119,16 @@
             </div>
 
             <div class="form-group">
+              <label class="form-label">人声音量</label>
+              <div class="slider-container">
+                <span style="font-size:13px;color:var(--text-muted);">静</span>
+                <input type="range" class="slider" min="0" max="150" step="5" v-model.number="settings.voiceVolume" />
+                <span style="font-size:13px;color:var(--text-muted);">强</span>
+                <span class="slider-value">{{ settings.voiceVolume }}%</span>
+              </div>
+            </div>
+
+            <div class="form-group">
               <label class="form-label">情感风格</label>
               <div class="emotion-grid">
                 <button
@@ -120,6 +152,26 @@
                   {{ material.title || material.filename }}
                 </option>
               </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">分段长度</label>
+              <div class="slider-container">
+                <span style="font-size:13px;color:var(--text-muted);">短</span>
+                <input type="range" class="slider" min="40" max="300" step="10" v-model.number="settings.maxSegmentLength" />
+                <span style="font-size:13px;color:var(--text-muted);">长</span>
+                <span class="slider-value">{{ settings.maxSegmentLength }}字</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">停顿强度</label>
+              <div class="slider-container">
+                <span style="font-size:13px;color:var(--text-muted);">紧凑</span>
+                <input type="range" class="slider" min="0.5" max="2" step="0.1" v-model.number="settings.pauseScale" />
+                <span style="font-size:13px;color:var(--text-muted);">舒缓</span>
+                <span class="slider-value">{{ settings.pauseScale.toFixed(1) }}x</span>
+              </div>
             </div>
 
             <div class="form-group" v-if="settings.bgmType !== 'none'">
@@ -189,9 +241,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useAppStore } from "../stores/app.js";
-import { fetchMaterials, fetchVoices, generateTts } from "../services/api.js";
+import { fetchMaterials, fetchVoices, generateTts, translateText } from "../services/api.js";
 import SceneCard from "../components/SceneCard.vue";
 import TextEditor from "../components/TextEditor.vue";
 import AudioPlayer from "../components/AudioPlayer.vue";
@@ -234,6 +286,9 @@ const generatedWork = ref(null);
 const previewVoice = ref(null);
 const generationError = ref("");
 const outputLang = ref("zh");
+const translatedContent = ref("");
+const translationError = ref("");
+const isTranslating = ref(false);
 onMounted(async () => {
   try {
     availableVoices.value = (await fetchVoices()).map((voice) => ({
@@ -245,8 +300,35 @@ onMounted(async () => {
     voiceLoadError.value = `音色列表加载失败：${error.message}`;
   }
 });
+const targetLanguageNames = {
+  zh: "中文",
+  en: "English",
+  ja: "日本語",
+  ko: "한국어",
+  fr: "Français",
+  de: "Deutsch",
+  es: "Español",
+  it: "Italiano",
+  pt: "Português",
+  ru: "Русский",
+};
+
 const canGenerate = computed(() => {
-  return textContent.value.trim().length > 0 && selectedVoice.value !== null && !isGenerating.value;
+  return textContent.value.trim().length > 0 && selectedVoice.value !== null && !isGenerating.value && !isTranslating.value;
+});
+
+const targetLanguageLabel = computed(() => targetLanguageNames[outputLang.value] || outputLang.value);
+const generateContent = computed(() => {
+  if (outputLang.value !== "zh" && translatedContent.value.trim()) {
+    return translatedContent.value;
+  }
+  return textContent.value;
+});
+const translationStatus = computed(() => {
+  if (translationError.value) return translationError.value;
+  if (isTranslating.value) return "正在生成译文...";
+  if (translatedContent.value.trim()) return "译文已生成，可直接编辑后合成。";
+  return "尚未生成译文。";
 });
 
 function normalizePitch(pitch) {
@@ -264,6 +346,11 @@ function selectScene(scene) {
   settings.value.speed = scene.defaultSpeed;
 }
 
+watch([textContent, outputLang], () => {
+  translatedContent.value = "";
+  translationError.value = "";
+});
+
 function selectVoiceFromPreview() {
   if (previewVoice.value) {
     selectedVoice.value = previewVoice.value;
@@ -271,10 +358,34 @@ function selectVoiceFromPreview() {
   }
 }
 
+async function previewTranslation() {
+  if (!textContent.value.trim() || outputLang.value === "zh") return;
+  isTranslating.value = true;
+  translationError.value = "";
+  try {
+    const result = await translateText({
+      content: textContent.value,
+      targetLang: outputLang.value,
+    });
+    translatedContent.value = result.translatedText || "";
+  } catch (error) {
+    translationError.value = error.message || "翻译失败，请稍后重试。";
+  } finally {
+    isTranslating.value = false;
+  }
+}
+
 async function generateAudio() {
   if (!canGenerate.value) return;
-  isGenerating.value = true;
   generationError.value = "";
+  if (outputLang.value !== "zh" && !translatedContent.value.trim()) {
+    await previewTranslation();
+    if (!translatedContent.value.trim()) {
+      generationError.value = translationError.value || "请先完成翻译预览。";
+      return;
+    }
+  }
+  isGenerating.value = true;
 
   try {
     const work = await generateTts({
@@ -283,10 +394,14 @@ async function generateAudio() {
       voiceId: selectedVoice.value.providerVoiceId || selectedVoice.value.id,
       speed: settings.value.speed,
       pitch: settings.value.pitch,
+      voiceVolume: settings.value.voiceVolume,
       emotion: settings.value.emotion,
       bgmType: settings.value.bgmType,
       bgmVolume: settings.value.bgmVolume,
+      maxSegmentLength: settings.value.maxSegmentLength,
+      pauseScale: settings.value.pauseScale,
       outputLang: outputLang.value,
+      translatedContent: outputLang.value !== "zh" ? generateContent.value : undefined,
     });
     generatedWork.value = work;
     store.addWork(work);
@@ -336,6 +451,69 @@ async function saveWork() {
   flex-shrink: 0;
 }
 
+.translation-panel {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+
+.translation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.translation-header strong {
+  display: block;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.translation-header span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.translation-textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.7;
+  outline: none;
+}
+
+.translation-textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.translation-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.translation-error {
+  color: #b91c1c;
+}
+
+.translation-status {
+  color: var(--text-secondary);
+}
 .voice-option {
   cursor: pointer;
   padding: 14px 16px;

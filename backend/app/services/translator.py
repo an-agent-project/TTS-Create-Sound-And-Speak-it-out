@@ -1,4 +1,4 @@
-﻿from deep_translator import GoogleTranslator
+from deep_translator import GoogleTranslator
 
 # Language code -> display name
 LANGUAGES = {
@@ -8,6 +8,10 @@ LANGUAGES = {
     "ko": "한국어",
     "fr": "Français",
     "de": "Deutsch",
+    "es": "Español",
+    "it": "Italiano",
+    "pt": "Português",
+    "ru": "Русский",
 }
 
 # Output language -> recommended Edge-TTS voice
@@ -18,6 +22,10 @@ LANG_VOICE_MAP = {
     "ko": "ko-KR-SunHiNeural",
     "fr": "fr-FR-DeniseNeural",
     "de": "de-DE-KatjaNeural",
+    "es": "es-ES-ElviraNeural",
+    "it": "it-IT-ElsaNeural",
+    "pt": "pt-BR-FranciscaNeural",
+    "ru": "ru-RU-SvetlanaNeural",
 }
 
 

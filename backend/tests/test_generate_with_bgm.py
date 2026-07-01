@@ -44,7 +44,10 @@ def test_generate_tts_mixes_selected_bgm(monkeypatch, tmp_path):
         finally:
             db.close()
 
+    synthesize_calls = []
+
     async def fake_synthesize(**kwargs):
+        synthesize_calls.append(kwargs)
         kwargs["output_path"].write_bytes(b"voice")
         return 1
 
@@ -66,6 +69,9 @@ def test_generate_tts_mixes_selected_bgm(monkeypatch, tmp_path):
                 "voiceId": "zh-CN-XiaoxiaoNeural",
                 "bgmType": "test-bgm",
                 "bgmVolume": 40,
+                "voiceVolume": 85,
+                "maxSegmentLength": 80,
+                "pauseScale": 1.5,
             },
         )
     finally:
@@ -73,3 +79,6 @@ def test_generate_tts_mixes_selected_bgm(monkeypatch, tmp_path):
 
     assert response.status_code == 200, response.text
     assert calls == [(bgm_path, 40)]
+    assert synthesize_calls[0]["voice_volume"] == 85
+    assert all(len(segment.text) <= 80 for segment in synthesize_calls[0]["segments"])
+    assert all(segment.pauseMs >= 180 for segment in synthesize_calls[0]["segments"])

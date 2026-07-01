@@ -6,19 +6,34 @@ from pydantic import BaseModel, Field
 class GenerateRequest(BaseModel):
     title: str | None = None
     content: str = Field(..., min_length=1, max_length=20000)
+    translatedContent: str | None = Field(None, alias="translatedContent", max_length=20000)
     sceneId: str | None = None
     voiceId: str
     speed: float = Field(1.0, ge=0.5, le=2.0)
     pitch: int = Field(0, ge=-50, le=50)
+    voiceVolume: int = Field(100, ge=0, le=150, alias="voiceVolume")
     emotion: Literal["calm", "happy", "sad", "excited"] = "calm"
     bgmType: str = "none"
     outputLang: str = Field("zh", alias="outputLang")
     bgmVolume: int = Field(30, ge=0, le=100)
+    maxSegmentLength: int = Field(120, ge=40, le=300, alias="maxSegmentLength")
+    pauseScale: float = Field(1.0, ge=0.5, le=2.0, alias="pauseScale")
 
 
 class PreprocessRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=20000)
     maxSegmentLength: int = Field(120, ge=40, le=300)
+
+
+class TranslateRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=20000)
+    targetLang: str = Field("zh", alias="targetLang")
+
+
+class TranslateResponse(BaseModel):
+    sourceText: str
+    targetLang: str
+    translatedText: str
 
 
 class TextSegment(BaseModel):
