@@ -2,7 +2,7 @@ import asyncio
 import os
 import shutil
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 
 import edge_tts
@@ -55,6 +55,7 @@ async def synthesize_segments_to_file(
     provider: str = "edge_tts",
     output_lang: str = "zh",
     voice_volume: int = 100,
+    progress_callback: Callable[[int, int], Awaitable[None] | None] | None = None,
 ) -> int:
     if not segments:
         raise ValueError("no text segments to synthesize")
@@ -78,15 +79,22 @@ async def synthesize_segments_to_file(
         if voice_volume != 100:
             retry_kwargs["voice_volume"] = voice_volume
         await _synthesize_with_retry(**retry_kwargs)
+        if progress_callback:
+            result = progress_callback(1, 1)
+            if result is not None:
+                await result
         return _estimate_duration_seconds(combined_text, speed)
 
     semaphore = asyncio.Semaphore(max_concurrency)
+    progress_lock = asyncio.Lock()
+    completed_segments = 0
 
     with tempfile.TemporaryDirectory(prefix="tts-segments-", dir=output_path.parent) as temp_dir:
         temp_path = Path(temp_dir)
         segment_paths = [temp_path / f"segment-{index:04d}.mp3" for index in range(len(segments))]
 
         async def synthesize_one(index: int, segment: TextSegment) -> None:
+            nonlocal completed_segments
             async with semaphore:
                 retry_kwargs = {
                     "text": segment.text,
@@ -104,6 +112,13 @@ async def synthesize_segments_to_file(
                 if voice_volume != 100:
                     retry_kwargs["voice_volume"] = voice_volume
                 await _synthesize_with_retry(**retry_kwargs)
+                async with progress_lock:
+                    completed_segments += 1
+                    completed = completed_segments
+                if progress_callback:
+                    result = progress_callback(completed, len(segments))
+                    if result is not None:
+                        await result
 
         await asyncio.gather(
             *(synthesize_one(index, segment) for index, segment in enumerate(segments))
@@ -229,6 +244,7 @@ async def _synthesize_text(
     output_lang: str = "zh",
     voice_volume: int = 100,
 ) -> None:
+    voice = voice.split("#public-", 1)[0]
     if provider == BAILIAN_TTS_PROVIDER:
         await synthesize_bailian_to_file(
             text=text,

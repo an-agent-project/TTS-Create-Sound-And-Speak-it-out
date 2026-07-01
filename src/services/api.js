@@ -1,12 +1,12 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
 async function request(path, options = {}) {
-  const { headers, ...restOptions } = options;
+  const { headers: optionHeaders = {}, ...fetchOptions } = options;
   const response = await fetch(`${API_BASE}${path}`, {
-    ...restOptions,
+    ...fetchOptions,
     headers: {
       "Content-Type": "application/json",
-      ...(headers || {}),
+      ...optionHeaders,
     },
   });
 
@@ -21,9 +21,7 @@ async function request(path, options = {}) {
     throw new Error(message);
   }
 
-  if (response.status === 204) {
-    return null;
-  }
+  if (response.status === 204) return null;
   return response.json();
 }
 
@@ -37,9 +35,32 @@ function errorMessage(detail, fallback) {
   return detail.message || detail.msg || JSON.stringify(detail);
 }
 
+function getAuthToken() {
+  return localStorage.getItem("auth_token");
+}
+
 function authHeaders() {
-  const token = localStorage.getItem("auth_token");
+  const token = getAuthToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function uploadForm(path, formData) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: formData,
+  });
+  if (!response.ok) {
+    let message = `请求失败，${response.status}`;
+    try {
+      const data = await response.json();
+      message = errorMessage(data.detail || data.message, message);
+    } catch {
+      // Keep the generic message when the response is not JSON.
+    }
+    throw new Error(message);
+  }
+  return response.json();
 }
 
 export function sendAuthCode(email) {
@@ -55,26 +76,35 @@ export function resetPassword(payload) {
     body: JSON.stringify(payload),
   });
 }
+
 export function fetchScenes() {
   return request("/scenes");
 }
 
-export async function fetchVoices() {
-  const voices = await request("/voices", { headers: authHeaders() });
-  return voices.map((voice) => {
-    const provider =
-      voice.providers?.find((item) => item.isActive && item.isDefault) ||
-      voice.providers?.find((item) => item.isActive);
+function mapVoice(voice) {
+  const provider =
+    voice.providers?.find((item) => item.isActive && item.isDefault) ||
+    voice.providers?.find((item) => item.isActive);
+  return {
+    ...voice,
+    id: voice.voiceKey || voice.id,
+    dbId: voice.id,
+    name: voice.displayName || voice.name,
+    providerVoiceId: provider?.providerVoiceId,
+    isSystemVoice: voice.ownerId == null,
+  };
+}
 
-    return {
-      ...voice,
-      dbId: voice.id,
-      id: voice.voiceKey || voice.id,
-      name: voice.displayName || voice.name,
-      providerVoiceId: provider?.providerVoiceId,
-      isSystemVoice: voice.ownerId == null,
-    };
-  });
+export async function fetchVoices() {
+  return (await request("/voices", { headers: authHeaders() })).map(mapVoice);
+}
+
+export async function fetchPublicVoices() {
+  return (await request("/voices?scope=public", { headers: authHeaders() })).map(mapVoice);
+}
+
+export async function fetchPersonalVoices() {
+  return (await request("/voices?scope=personal", { headers: authHeaders() })).map(mapVoice);
 }
 
 export function deleteVoiceById(id) {
@@ -84,47 +114,45 @@ export function deleteVoiceById(id) {
   });
 }
 
+export async function cloneVoiceToPersonal(voiceId) {
+  return request(`/voices/${voiceId}/clone`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+}
+
+export async function deletePersonalVoice(voiceId) {
+  return deleteVoiceById(voiceId);
+}
+
+export function requestVoicePublish(voiceId) {
+  return request(`/voices/${voiceId}/publish-requests`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+}
+
 export function fetchMaterials(category = "") {
   const query = category ? `?category=${encodeURIComponent(category)}` : "";
   return request(`/materials${query}`, { headers: authHeaders() });
 }
 
-export async function uploadMaterial(formData) {
-  const response = await fetch(`${API_BASE}/materials`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: formData,
-  });
-  if (!response.ok) {
-    let message = `请求失败，${response.status}`;
-    try {
-      const data = await response.json();
-      message = errorMessage(data.detail, message);
-    } catch {
-      // Keep the generic message when the response is not JSON.
-    }
-    throw new Error(message);
-  }
-  return response.json();
+export function uploadMaterial(formData) {
+  return uploadForm("/materials", formData);
 }
 
-export async function createVoiceClone(formData) {
-  const response = await fetch(`${API_BASE}/voice-clones`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: formData,
-  });
-  if (!response.ok) {
-    let message = `请求失败，${response.status}`;
-    try {
-      const data = await response.json();
-      message = errorMessage(data.detail, message);
-    } catch {
-      // Keep the generic message when the response is not JSON.
-    }
-    throw new Error(message);
-  }
-  return response.json();
+export function createVoiceClone(formData) {
+  return uploadForm("/voice-clones", formData);
+}
+
+export function createVoiceCloneJob(formData) {
+  return uploadForm("/voice-clones/jobs", formData);
+}
+
+export function createJobEventSource(jobId) {
+  const token = getAuthToken();
+  const query = token ? `?token=${encodeURIComponent(token)}` : "";
+  return new EventSource(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/events${query}`);
 }
 
 export function translateText(payload) {
@@ -144,11 +172,21 @@ export function preprocessText(content) {
 export function synthesizeVoicePreview(payload) {
   return request("/tts/preview", {
     method: "POST",
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   });
 }
+
 export function generateTts(payload) {
   return request("/tts/generate", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function startGenerateTtsJob(payload) {
+  return request("/tts/generate-jobs", {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(payload),
@@ -166,45 +204,18 @@ export function deleteWorkById(id) {
   });
 }
 
-export async function fetchPublicVoices() {
-  const voices = await request("/voices?scope=public", { headers: authHeaders() });
-  return voices.map((voice) => {
-    const provider =
-      voice.providers?.find((item) => item.isActive && item.isDefault) ||
-      voice.providers?.find((item) => item.isActive);
-    return {
-      ...voice,
-      name: voice.displayName || voice.name,
-      providerVoiceId: provider?.providerVoiceId,
-    };
-  });
-}
-
-export async function fetchPersonalVoices() {
-  const voices = await request("/voices?scope=personal", { headers: authHeaders() });
-  return voices.map((voice) => {
-    const provider =
-      voice.providers?.find((item) => item.isActive && item.isDefault) ||
-      voice.providers?.find((item) => item.isActive);
-    return {
-      ...voice,
-      dbId: voice.id,
-      name: voice.displayName || voice.name,
-      providerVoiceId: provider?.providerVoiceId,
-    };
-  });
-}
-
-export async function cloneVoiceToPersonal(voiceId) {
-  return request("/voices/" + voiceId + "/clone", {
-    method: "POST",
+export function fetchVoicePublishRequests(status = "pending") {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/admin/voice-publish-requests${query}`, {
     headers: authHeaders(),
   });
 }
 
-export async function deletePersonalVoice(voiceId) {
-  return request("/voices/" + voiceId, {
-    method: "DELETE",
+export function reviewVoicePublishRequest(requestId, action, note = "") {
+  const query = new URLSearchParams({ action });
+  if (note) query.set("note", note);
+  return request(`/admin/voice-publish-requests/${requestId}/review?${query}`, {
+    method: "POST",
     headers: authHeaders(),
   });
 }

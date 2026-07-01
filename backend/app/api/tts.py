@@ -3,8 +3,10 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.auth import get_optional_user
 from app.crud import tts_preview as tts_preview_crud
 from app.database import get_db
+from app.models import User
 from app.schemas import TtsPreviewRequest, TtsPreviewResponse
 from app.services.tts_service import synthesize_preview
 
@@ -15,9 +17,14 @@ router = APIRouter(prefix="/api/tts", tags=["tts"])
 @router.post("/preview", response_model=TtsPreviewResponse)
 async def preview_tts(
     payload: TtsPreviewRequest,
+    current_user: User | None = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ) -> TtsPreviewResponse:
-    provider_profile = tts_preview_crud.get_provider_profile_by_voice_id(db, payload.voice_id)
+    provider_profile = tts_preview_crud.get_provider_profile_by_voice_id(
+        db,
+        payload.voice_id,
+        user_id=current_user.id if current_user else None,
+    )
     if not provider_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

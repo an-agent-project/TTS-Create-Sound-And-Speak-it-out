@@ -5,7 +5,8 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import get_db
 from app.main import app
-from app.models import Base, Voice, VoicePreviewAudio, VoiceProviderProfile
+from app.auth import create_access_token, hash_password
+from app.models import Base, User, Voice, VoicePreviewAudio, VoiceProviderProfile
 from app.crud.tts_preview import hash_sample_text
 
 
@@ -205,6 +206,54 @@ def test_preview_tts_rejects_empty_text():
     assert response.status_code == 422
     assert "text" in response.text
 
+
+def test_preview_tts_rejects_other_users_personal_voice(monkeypatch):
+    calls = []
+
+    async def fake_synthesize_preview(text, provider_profile, output_filename=None):
+        calls.append((text, provider_profile.provider_voice_id))
+        return {"filename": "should-not-run.mp3", "path": None, "duration": 1}
+
+    monkeypatch.setattr("app.api.tts.synthesize_preview", fake_synthesize_preview)
+
+    client, SessionLocal = make_client()
+    db = SessionLocal()
+    owner = User(username="owner", password_hash=hash_password("pass1234"), is_active=True)
+    other = User(username="other", password_hash=hash_password("pass1234"), is_active=True)
+    db.add_all([owner, other])
+    db.flush()
+    voice = Voice(
+        voice_key="owner-private",
+        display_name="Owner Private",
+        gender="female",
+        category="personal",
+        is_active=True,
+        owner_id=owner.id,
+    )
+    voice.providers.append(
+        VoiceProviderProfile(
+            provider="bailian_tts",
+            provider_voice_id="bailian:qwen3-tts-flash:private-owner",
+            locale="zh-CN",
+            supports_wav=False,
+            supports_mp3=True,
+            is_default=True,
+            is_active=True,
+        )
+    )
+    other_token = create_access_token(other.id, other.role or "user")
+    db.add(voice)
+    db.commit()
+    db.close()
+
+    response = client.post(
+        "/api/tts/preview",
+        json={"text": "hello", "voiceId": "bailian:qwen3-tts-flash:private-owner"},
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+
+    assert response.status_code == 404
+    assert calls == []
 def test_preview_tts_supports_bailian_provider(monkeypatch, tmp_path):
     calls = []
 

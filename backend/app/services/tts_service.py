@@ -17,16 +17,18 @@ async def synthesize_preview(
     PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
     output_path = PREVIEW_DIR / output_filename
 
+    provider_voice_id = provider_profile.provider_voice_id.split("#public-", 1)[0]
+
     if provider_profile.provider == BAILIAN_TTS_PROVIDER:
         await synthesize_bailian_to_file(
             text=text,
-            provider_voice_id=provider_profile.provider_voice_id,
+            provider_voice_id=provider_voice_id,
             output_path=output_path,
         )
     elif provider_profile.provider == "edge_tts":
         communicate = edge_tts.Communicate(
             text=text,
-            voice=provider_profile.provider_voice_id,
+            voice=provider_voice_id,
         )
         await communicate.save(str(output_path))
     else:

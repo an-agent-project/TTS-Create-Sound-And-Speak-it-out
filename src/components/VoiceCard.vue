@@ -36,6 +36,14 @@
         <FolderPlus :size="14" /> {{ cloneLabel || '存入我的音色库' }}
       </button>
       <div v-if="manageMode" class="manage-actions">
+        <button
+          v-if="showPublish"
+          class="btn btn-accent btn-sm"
+          :disabled="publishDisabled"
+          @click.stop="emit('publishVoice')"
+        >
+          <UploadCloud :size="14" /> {{ publishLabel }}
+        </button>
         <button class="btn btn-outline btn-sm" @click.stop="toggleEdit">
           <Settings2 :size="14" /> {{ editing ? '取消' : '编辑标签' }}
         </button>
@@ -53,7 +61,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
-import { User, Baby, Star, Heart, Play, X, Trash2, Settings2, FolderPlus } from 'lucide-vue-next'
+import { User, Baby, Star, Heart, Play, X, Trash2, Settings2, FolderPlus, UploadCloud } from 'lucide-vue-next'
 
 const props = defineProps({
   voice: { type: Object, required: true },
@@ -64,8 +72,11 @@ const props = defineProps({
   showClone: { type: Boolean, default: false },
   cloneLabel: { type: String, default: '存入我的音色库' },
   cloneDisabled: { type: Boolean, default: false },
+  showPublish: { type: Boolean, default: false },
+  publishLabel: { type: String, default: "\u4e0a\u4f20\u516c\u5171\u5e93" },
+  publishDisabled: { type: Boolean, default: false },
 })
-const emit = defineEmits(['toggleFavorite', 'preview', 'select', 'deleteVoice', 'updateTags', 'clone'])
+const emit = defineEmits(['toggleFavorite', 'preview', 'select', 'deleteVoice', 'updateTags', 'clone', 'publishVoice'])
 
 const editing = ref(false)
 const editingIdx = ref(-1)

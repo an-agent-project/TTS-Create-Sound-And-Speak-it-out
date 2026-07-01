@@ -120,6 +120,39 @@ CREATE TABLE IF NOT EXISTS voice_preview_audios (
     ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS voice_publish_requests (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  source_voice_id BIGINT UNSIGNED NOT NULL,
+  requester_id BIGINT UNSIGNED NOT NULL,
+  public_voice_id BIGINT UNSIGNED NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  request_note VARCHAR(500) NULL,
+  review_note VARCHAR(500) NULL,
+  reviewed_by BIGINT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_voice_publish_status (status),
+  KEY idx_voice_publish_source (source_voice_id),
+  KEY idx_voice_publish_requester (requester_id),
+  KEY idx_voice_publish_public_voice (public_voice_id),
+  CONSTRAINT fk_voice_publish_source
+    FOREIGN KEY (source_voice_id) REFERENCES voices(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_voice_publish_requester
+    FOREIGN KEY (requester_id) REFERENCES users(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_voice_publish_public_voice
+    FOREIGN KEY (public_voice_id) REFERENCES voices(id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_voice_publish_reviewer
+    FOREIGN KEY (reviewed_by) REFERENCES users(id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS materials (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   material_key VARCHAR(100) NOT NULL,
