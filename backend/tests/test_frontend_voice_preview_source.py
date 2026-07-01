@@ -48,6 +48,14 @@ def test_voice_library_deletes_voice_through_api_and_clears_workspace_selection(
     assert "selectedVoice.value = null" in workspace_source
 
 
+def test_personal_voice_library_keeps_database_id_for_path_apis():
+    source = (ROOT_DIR / "src" / "views" / "VoiceLibrary.vue").read_text(encoding="utf-8")
+
+    assert "dbId: voice.id" not in source
+    assert "await deleteVoiceById(voice.dbId)" in source
+    assert "await requestVoicePublish(voice.dbId)" in source
+
+
 def test_workspace_clear_speed_and_pitch_controls_are_wired():
     editor_source = TEXT_EDITOR_PATH.read_text(encoding="utf-8")
     workspace_source = WORKSPACE_PATH.read_text(encoding="utf-8")
@@ -98,6 +106,13 @@ def test_extraction_page_exposes_bailian_clone_upload_not_voice_library():
     assert '克隆音色' in extraction_source
     assert 'createVoiceClone(formData)' not in library_source
     assert 'cloneVoice' not in library_source
+
+
+def test_public_voice_library_clones_by_database_id_not_voice_key():
+    source = (ROOT_DIR / "src" / "views" / "PublicVoiceLibrary.vue").read_text(encoding="utf-8")
+
+    assert "await cloneVoiceToPersonal(voice.dbId)" in source
+    assert "await cloneVoiceToPersonal(voice.id)" not in source
 
 
 def test_extraction_page_generates_preview_for_cloned_voice_result():

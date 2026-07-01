@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 import edge_tts
 
@@ -9,6 +10,10 @@ from app.services.bailian_tts import BAILIAN_TTS_PROVIDER, synthesize_bailian_to
 PREVIEW_DIR = Path(__file__).resolve().parents[2] / "static" / "previews"
 
 
+def _provider_voice_id_for_synthesis(provider_voice_id: str) -> str:
+    return re.sub(r"_u\d+$", "", provider_voice_id.split("#public-", 1)[0])
+
+
 async def synthesize_preview(
     text: str,
     provider_profile: VoiceProviderProfile,
@@ -17,7 +22,7 @@ async def synthesize_preview(
     PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
     output_path = PREVIEW_DIR / output_filename
 
-    provider_voice_id = provider_profile.provider_voice_id.split("#public-", 1)[0]
+    provider_voice_id = _provider_voice_id_for_synthesis(provider_profile.provider_voice_id)
 
     if provider_profile.provider == BAILIAN_TTS_PROVIDER:
         await synthesize_bailian_to_file(

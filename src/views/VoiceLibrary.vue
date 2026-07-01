@@ -140,7 +140,6 @@ async function loadVoices() {
     ...voice,
     tags: voice.tags || [voice.style, voice.category].filter(Boolean),
     fromPublic: !!voice.sourceVoiceId,
-    dbId: voice.id,
     isSystemVoice: voice.ownerId == null,
   }));
 }

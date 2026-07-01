@@ -59,6 +59,36 @@ def test_synthesize_passes_speed_and_pitch_to_edge_tts(monkeypatch, tmp_path):
     assert captured["volume"] == "-15%"
 
 
+def test_synthesize_strips_personal_clone_suffix_for_edge_tts(monkeypatch, tmp_path):
+    captured = {}
+
+    class FakeCommunicate:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        async def save(self, path):
+            captured["output_path"] = path
+
+    monkeypatch.setattr(tts.edge_tts, "Communicate", FakeCommunicate)
+    async def fake_probe_duration(path):
+        return 1.0
+
+    monkeypatch.setattr(tts, "_probe_duration", fake_probe_duration)
+
+    asyncio.run(
+        tts.synthesize_to_file(
+            text="测试",
+            voice="zh-CN-XiaoyiNeural_u2",
+            speed=1.0,
+            pitch=0,
+            emotion="calm",
+            output_path=tmp_path / "result.mp3",
+        )
+    )
+
+    assert captured["voice"] == "zh-CN-XiaoyiNeural"
+
+
 def test_emotion_adapter_maps_edge_emotion_to_voice_params():
     adapted = adapt_emotion("edge_tts", "happy", speed=1.0, pitch=0)
 

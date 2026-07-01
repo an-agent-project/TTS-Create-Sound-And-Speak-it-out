@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import os
+import re
 from pathlib import Path
 
 import httpx
@@ -40,7 +41,7 @@ def _language_type_for_output_lang(output_lang: str | None) -> str:
 
 def parse_bailian_provider_voice_id(provider_voice_id: str) -> tuple[str, str]:
     """Return (model, voice) from our stored provider voice id."""
-    provider_voice_id = (provider_voice_id or "").split("#public-", 1)[0]
+    provider_voice_id = re.sub(r"_u\d+$", "", (provider_voice_id or "").split("#public-", 1)[0])
     if provider_voice_id.startswith("bailian:"):
         parts = provider_voice_id.split(":", 2)
         if len(parts) == 3 and parts[1] and parts[2]:

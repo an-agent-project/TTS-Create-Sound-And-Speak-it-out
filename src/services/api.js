@@ -44,25 +44,6 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function uploadForm(path, formData) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: formData,
-  });
-  if (!response.ok) {
-    let message = `请求失败，${response.status}`;
-    try {
-      const data = await response.json();
-      message = errorMessage(data.detail || data.message, message);
-    } catch {
-      // Keep the generic message when the response is not JSON.
-    }
-    throw new Error(message);
-  }
-  return response.json();
-}
-
 export function sendAuthCode(email) {
   return request("/auth/send-code", {
     method: "POST",
@@ -141,12 +122,42 @@ export function uploadMaterial(formData) {
   return uploadForm("/materials", formData);
 }
 
-export function createVoiceClone(formData) {
-  return uploadForm("/voice-clones", formData);
+export async function createVoiceClone(formData) {
+  const response = await fetch(`${API_BASE}/voice-clones`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: formData,
+  });
+  if (!response.ok) {
+    let message = `请求失败，${response.status}`;
+    try {
+      const data = await response.json();
+      message = errorMessage(data.detail || data.message, message);
+    } catch {
+      // Keep the generic message when the response is not JSON.
+    }
+    throw new Error(message);
+  }
+  return response.json();
 }
 
-export function createVoiceCloneJob(formData) {
-  return uploadForm("/voice-clones/jobs", formData);
+export async function createVoiceCloneJob(formData) {
+  const response = await fetch(`${API_BASE}/voice-clones/jobs`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: formData,
+  });
+  if (!response.ok) {
+    let message = `请求失败，${response.status}`;
+    try {
+      const data = await response.json();
+      message = errorMessage(data.detail || data.message, message);
+    } catch {
+      // Keep the generic message when the response is not JSON.
+    }
+    throw new Error(message);
+  }
+  return response.json();
 }
 
 export function createJobEventSource(jobId) {

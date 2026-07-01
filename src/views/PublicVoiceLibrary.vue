@@ -133,7 +133,7 @@ const filteredVoices = computed(() => {
 
 async function cloneVoice(voice) {
   try {
-    await cloneVoiceToPersonal(voice.id);
+    await cloneVoiceToPersonal(voice.dbId);
     clonedIds.value.add(voice.id);
     toastMessage.value = "已存入个人音色库";
     setTimeout(() => { toastMessage.value = ""; }, 2000);

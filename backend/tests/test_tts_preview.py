@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -254,6 +256,62 @@ def test_preview_tts_rejects_other_users_personal_voice(monkeypatch):
 
     assert response.status_code == 404
     assert calls == []
+
+
+def test_preview_tts_strips_personal_clone_suffix_before_synthesis(monkeypatch):
+    calls = []
+
+    async def fake_save(self, path):
+        calls.append(self.kwargs["voice"])
+        Path(path).write_bytes(b"fake mp3")
+
+    class FakeCommunicate:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        save = fake_save
+
+    monkeypatch.setattr("app.services.tts_service.edge_tts.Communicate", FakeCommunicate)
+
+    client, SessionLocal = make_client()
+    db = SessionLocal()
+    owner = User(username="owner2", password_hash=hash_password("pass1234"), is_active=True)
+    db.add(owner)
+    db.flush()
+    voice = Voice(
+        voice_key="xiaoyi_u2",
+        display_name="晓伊",
+        gender="female",
+        category="personal",
+        is_active=True,
+        owner_id=owner.id,
+    )
+    voice.providers.append(
+        VoiceProviderProfile(
+            provider="edge_tts",
+            provider_voice_id="zh-CN-XiaoyiNeural_u2",
+            locale="zh-CN",
+            supports_wav=False,
+            supports_mp3=True,
+            is_default=True,
+            is_active=True,
+        )
+    )
+    token = create_access_token(owner.id, owner.role or "user")
+    db.add(voice)
+    db.commit()
+    db.close()
+
+    response = client.post(
+        "/api/tts/preview",
+        json={"text": "大家好，欢迎收听本期节目。", "voiceId": "zh-CN-XiaoyiNeural_u2"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert calls == ["zh-CN-XiaoyiNeural"]
+
+
 def test_preview_tts_supports_bailian_provider(monkeypatch, tmp_path):
     calls = []
 

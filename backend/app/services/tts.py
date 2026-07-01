@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import shutil
 import tempfile
 from collections.abc import Awaitable, Callable, Sequence
@@ -11,6 +12,10 @@ from app.services.azure_tts import AZURE_TTS_PROVIDER, synthesize_azure_to_file
 from app.services.bailian_tts import BAILIAN_TTS_PROVIDER, synthesize_bailian_to_file
 from app.services.emotion_adapter import adapt_emotion
 from app.work_schemas import TextSegment
+
+
+def _provider_voice_id_for_synthesis(provider_voice_id: str) -> str:
+    return re.sub(r"_u\d+$", "", provider_voice_id.split("#public-", 1)[0])
 
 
 async def synthesize_to_file(
@@ -244,7 +249,7 @@ async def _synthesize_text(
     output_lang: str = "zh",
     voice_volume: int = 100,
 ) -> None:
-    voice = voice.split("#public-", 1)[0]
+    voice = _provider_voice_id_for_synthesis(voice)
     if provider == BAILIAN_TTS_PROVIDER:
         await synthesize_bailian_to_file(
             text=text,

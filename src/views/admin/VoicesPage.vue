@@ -131,8 +131,8 @@ function startEdit(v) {
 
 async function saveEdit(id) {
   const p = new URLSearchParams();
-  if (editName.value) p.set("displayName", editName.value);
-  if (editCat.value) p.set("category", editCat.value);
+  if (editName.value) p.set('displayName', editName.value);
+  if (editCat.value) p.set('category', editCat.value);
   await fetch(`/api/admin/voices/${id}?${p}`, { method: "PUT", headers: store.authHeaders() });
   editingId.value = null;
   await load();
@@ -140,7 +140,7 @@ async function saveEdit(id) {
 
 async function toggleVoice(v) {
   const p = new URLSearchParams();
-  p.set("isActive", String(!v.isActive));
+  p.set('isActive', String(!v.isActive));
   await fetch(`/api/admin/voices/${v.id}?${p}`, { method: "PUT", headers: store.authHeaders() });
   await load();
 }
