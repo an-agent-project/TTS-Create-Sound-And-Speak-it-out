@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --primary: #2d8a4e;
   --primary-hover: #22863a;
   --primary-light: #e8f5ec;
@@ -42,6 +42,8 @@
   --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.34);
 }
 
+
+
 * {
   margin: 0;
   padding: 0;
@@ -57,7 +59,10 @@ body {
     "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial,
     sans-serif;
   color: var(--text);
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 70% 25%, rgba(68, 204, 122, 0.14), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
   line-height: 1.6;
   min-height: 100vh;
 }

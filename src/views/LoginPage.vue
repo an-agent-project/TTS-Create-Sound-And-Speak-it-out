@@ -1,5 +1,5 @@
-<template>
-  <div class="login-page" @mousemove="onMouseWave" @touchmove="onMouseWave">
+﻿<template>
+  <div class="login-page" >
         <div class="ripple-bg">
       <svg class="water-surface" viewBox="0 0 1440 900" preserveAspectRatio="none">
         <defs>
@@ -23,7 +23,6 @@
       <div class="ripple r1"></div><div class="ripple r2"></div><div class="ripple r3"></div><div class="ripple r4"></div>
       <div class="ripple r5"></div><div class="ripple r6"></div><div class="ripple r7"></div><div class="ripple r8"></div>
       <div class="ripple r9"></div><div class="ripple r10"></div><div class="ripple r11"></div><div class="ripple r12"></div>
-      <div v-for="mr in mouseWaves" :key="mr.id" class="mouse-wave" :style="{left:mr.x+'px',top:mr.y+'px'}"></div>
     </div>
     <div class="login-right">
       <div class="form-wrapper">
@@ -454,18 +453,6 @@ onMounted(() => {
 
 /* ?? ???? ?? */
 let rippleId = 0;
-let mouseThrottle = 0;
-const mouseWaves = ref([]);
-function onMouseWave(e) {
-  const now = Date.now();
-  if (now - mouseThrottle < 30) return;
-  mouseThrottle = now;
-  const id = ++rippleId;
-  mouseWaves.value = [...mouseWaves.value.slice(-40), { id, x: e.clientX, y: e.clientY }];
-  setTimeout(() => {
-    mouseWaves.value = mouseWaves.value.filter(r => r.id !== id);
-  }, 900);
-}
 
 const remembered = localStorage.getItem("rememberedAccount") || localStorage.getItem("rememberedEmail");
 if (remembered) {
@@ -500,8 +487,6 @@ if (remembered) {
 .r11{width:55px;height:55px;top:55%;left:90%;animation-delay:2s}
 .r12{width:70px;height:70px;top:80%;left:40%;animation-delay:2.75s}
 @keyframes rippleOut{0%{transform:scale(.2);opacity:.3}35%{opacity:.12}100%{transform:scale(4);opacity:0}}
-.mouse-wave{position:absolute;width:5px;height:5px;border-radius:50%;background:#22c55e;transform:translate(-50%,-50%);pointer-events:none;animation:trailFade .9s ease-out forwards}
-@keyframes trailFade{0%{opacity:.8}100%{opacity:0}}
 .login-right{width:100%;max-width:440px;padding:40px 20px;position:relative;z-index:1}
 .form-wrapper{width:100%;max-width:400px}
 .form-header{text-align:center;margin-bottom:32px}

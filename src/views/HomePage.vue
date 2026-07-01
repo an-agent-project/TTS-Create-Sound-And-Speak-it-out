@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="home-page">
     <section class="hero">
       <div class="hero-visual" aria-hidden="true">
@@ -22,23 +22,7 @@
         </div>
       </div>
 
-      <div class="hero-monitor reveal-on-scroll" aria-label="音频生成状态">
-        <div class="monitor-top">
-          <span>Scene</span>
-          <strong>知识讲解</strong>
-        </div>
-        <div class="monitor-line">
-          <span>Voice</span>
-          <strong>晓晓 · 温柔</strong>
-        </div>
-        <div class="monitor-line">
-          <span>Emotion</span>
-          <strong>calm / strong</strong>
-        </div>
-        <div class="mini-wave">
-          <span v-for="bar in 24" :key="bar" :style="{ '--i': bar }"></span>
-        </div>
-      </div>
+      <p class="hero-statement reveal-on-scroll"><span class="hero-em">不只是文字转语音</span>。AI Voice Studio 是一间全栈智能音频工坊——输入一段文本，选择一种情绪，按下生成，数秒之内，一个由 AI 驱动的多语种配音作品便应声而出。从知识讲解到故事叙述，从中文播客到多语言创作，我们内置了 20+ 精心调校的音色、4 种创作场景模板、智能分段引擎与多语言翻译管线，让每一个字都落在最恰切的节奏里。无需录音棚，无需后期剪辑——这就是下一代有声内容创作的方式。</p>
     </section>
 
     <section class="flow-section reveal-on-scroll">
@@ -129,9 +113,8 @@
         <div v-for="track in emotionTracks" :key="track.label" class="mixer-row">
           <span>{{ track.label }}</span>
           <div class="mixer-track">
-            <i :style="{ '--level': track.value + '%', '--pulse': track.pulse + 'px', '--delay': track.delay + 's' }"></i>
+            <i :style="{ '--level': trackNums[track.label] + '%', '--pulse': track.pulse + 'px', '--delay': track.delay + 's' }"></i>
           </div>
-          <strong>{{ track.value }}%</strong>
         </div>
       </div>
     </section>
@@ -210,12 +193,34 @@ const scenes = [
 const activeSceneIndex = ref(0);
 const activeScene = computed(() => scenes[activeSceneIndex.value]);
 
+
+
 const emotionTracks = [
   { label: "清晰度", value: 92, pulse: 24, delay: 0 },
   { label: "情感强度", value: 74, pulse: 42, delay: -0.9 },
   { label: "音色表现力", value: 86, pulse: 32, delay: -1.45 },
   { label: "背景融合", value: 58, pulse: 52, delay: -0.45 },
 ];
+
+const barProgress = ref(0);
+
+const trackNums = computed(() => ({
+  "清晰度": Math.round(barProgress.value * 92),
+  "情感强度": Math.round(barProgress.value * 74),
+  "音色表现力": Math.round(barProgress.value * 86),
+  "背景融合": Math.round(barProgress.value * 58),
+}));
+
+let _animTimer = null;
+function animateTrackValues() {
+  const start = performance.now();
+  _animTimer = setInterval(() => {
+    const elapsed = performance.now() - start;
+    const progress = Math.min(elapsed / 1200, 1);
+    barProgress.value = 1 - Math.pow(1 - progress, 3);
+    if (progress >= 1) { clearInterval(_animTimer); _animTimer = null; }
+  }, 16);
+}
 
 function goToWorkspace(sceneId) {
   store.selectedScene = scenes.find((scene) => scene.id === sceneId);
@@ -234,7 +239,7 @@ function prevScene() {
   activeSceneIndex.value = (activeSceneIndex.value - 1 + scenes.length) % scenes.length;
 }
 
-onMounted(() => {
+onMounted(() => { animateTrackValues();
   revealObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -253,21 +258,18 @@ onMounted(() => {
   }, 3600);
 });
 
-onBeforeUnmount(() => {
+onBeforeUnmount(() => { clearInterval(_animTimer);
   revealObserver?.disconnect();
   window.clearInterval(sceneTimer);
 });
 </script>
 
-<style scoped>
-.home-page {
+<style scoped>.home-page {
   width: 100vw;
   margin-left: calc(50% - 50vw);
   padding: 0 max(24px, calc((100vw - 1120px) / 2)) 72px;
-  background:
-    radial-gradient(circle at 82% 38%, rgba(45, 138, 78, 0.18), transparent 28%),
-    linear-gradient(180deg, #071210 0%, #091713 46%, #07120f 100%);
-  color: #f7fbf7;
+  background: linear-gradient(180deg, var(--hero-bg-start) 0%, var(--hero-bg-end) 46%, var(--hero-bg-start) 100%);
+  color: var(--hero-text);
 }
 
 .hero {
@@ -277,11 +279,8 @@ onBeforeUnmount(() => {
   margin-left: calc(-1 * max(24px, calc((100vw - 1120px) / 2)));
   padding: 72px max(24px, calc((100vw - 1120px) / 2)) 56px;
   overflow: hidden;
-  background:
-    linear-gradient(90deg, rgba(6, 18, 17, 0.94) 0%, rgba(7, 23, 20, 0.88) 46%, rgba(10, 40, 31, 0.72) 100%),
-    radial-gradient(circle at 74% 26%, rgba(48, 165, 103, 0.5), transparent 32%),
-    linear-gradient(135deg, #071210, #15352b);
-  color: #f7fbf7;
+  background: linear-gradient(135deg, var(--hero-bg-start), var(--hero-bg-end));
+  color: var(--hero-text);
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.75fr);
   align-items: center;
@@ -300,7 +299,7 @@ onBeforeUnmount(() => {
   top: 12%;
   width: 34vw;
   aspect-ratio: 1;
-  background: radial-gradient(circle, rgba(68, 204, 122, 0.28), transparent 68%);
+  background: radial-gradient(circle, var(--hero-glow), transparent 68%);
   filter: blur(12px);
 }
 
@@ -322,7 +321,7 @@ onBeforeUnmount(() => {
   width: clamp(3px, 0.42vw, 7px);
   height: calc(22px + (var(--i) % 9) * 13px);
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(231, 255, 238, 0.95), rgba(53, 191, 107, 0.45));
+  background: linear-gradient(180deg, var(--hero-wave));
   animation: pulse-wave 2.8s ease-in-out infinite;
   animation-delay: calc(var(--i) * -0.08s);
 }
@@ -333,8 +332,7 @@ onBeforeUnmount(() => {
   max-width: 660px;
 }
 
-.eyebrow {
-  color: #64c987;
+.eyebrow { color: var(--hero-eyebrow);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -349,10 +347,28 @@ onBeforeUnmount(() => {
   max-width: 760px;
 }
 
+
+.hero-statement {
+  font-family: 'Noto Serif SC', 'STSong', 'Songti SC', 'PingFang SC', serif;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.95;
+  color: var(--hero-text-muted);
+  max-width: 720px;
+  margin: 32px 0 0;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  text-indent: 2em;
+  }
+
+  .hero-em { font-size: 28px;
+    font-weight: 700;
+    color: var(--hero-em-color);
+  }
 .hero-desc {
   margin: 22px 0 32px;
   max-width: 520px;
-  color: rgba(247, 251, 247, 0.78);
+  color: var(--hero-text-secondary);
   font-size: 18px;
   line-height: 1.8;
 }
@@ -363,49 +379,11 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
 }
 
-.hero-secondary {
-  color: #f7fbf7;
-  border: 1px solid rgba(247, 251, 247, 0.28);
-  background: rgba(255, 255, 255, 0.08);
+.hero-secondary { background: var(--hero-btn-bg);
   backdrop-filter: blur(12px);
 }
 
-.hero-secondary:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.hero-monitor {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 380px);
-  justify-self: end;
-  padding: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(7, 20, 18, 0.5);
-  backdrop-filter: blur(18px);
-  border-radius: 8px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.26);
-}
-
-.monitor-top,
-.monitor-line {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 13px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.monitor-top span,
-.monitor-line span {
-  color: rgba(247, 251, 247, 0.54);
-  font-size: 13px;
-}
-
-.monitor-top strong,
-.monitor-line strong {
-  color: #fff;
-  font-size: 14px;
+.hero-secondary:hover { background: var(--hero-btn-hover);
 }
 
 .mini-wave {
@@ -441,7 +419,7 @@ onBeforeUnmount(() => {
   font-size: clamp(30px, 4vw, 48px);
   line-height: 1.15;
   max-width: 680px;
-  color: #f7fbf7;
+  color: var(--hero-text);
 }
 
 .flow-line {
@@ -707,11 +685,11 @@ onBeforeUnmount(() => {
 
 .mixer-row {
   display: grid;
-  grid-template-columns: 96px 1fr 46px;
+  grid-template-columns: 96px 1fr;
   align-items: center;
   gap: 18px;
   padding: 18px 0;
-  border-bottom: 1px solid rgba(126, 211, 148, 0.16);
+  border-bottom: 1px solid var(--hero-mixer-border); padding-right: 40px;
 }
 
 .mixer-row:last-child {
@@ -729,7 +707,7 @@ onBeforeUnmount(() => {
 
 .mixer-track {
   height: 8px;
-  background: rgba(247, 251, 247, 0.14);
+  background: var(--hero-mixer-bg);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -808,23 +786,6 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
     padding-top: 56px;
   }
-  .hero-monitor {
-    justify-self: start;
-  }
-  .flow-line,
-  .voice-section {
-    grid-template-columns: 1fr;
-  }
-  .flow-step {
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .flow-step:last-child {
-    border-bottom: 0;
-  }
-  .scene-showcase {
-    grid-template-columns: 1fr;
-  }
   .scene-carousel {
     min-height: 390px;
   }
@@ -847,9 +808,6 @@ onBeforeUnmount(() => {
   .hero h1 {
     font-size: 42px;
   }
-  .hero-desc {
-    font-size: 16px;
-  }
   .hero-actions .btn {
     width: 100%;
   }
@@ -866,4 +824,44 @@ onBeforeUnmount(() => {
     display: none;
   }
 }
+</style>
+
+<style>
+:root:not(.theme-dark) .home-page { background: var(--bg) !important; color: var(--text) !important; }
+:root:not(.theme-dark) .hero { background: linear-gradient(135deg, #f0f7f2, #f6faf7) !important; color: var(--text) !important; }
+:root:not(.theme-dark) .hero h1 { color: var(--text) !important; }
+:root:not(.theme-dark) .hero-desc { color: var(--text-secondary) !important; }
+:root:not(.theme-dark) .hero-statement { color: var(--text-secondary) !important; text-shadow: none !important; }
+:root:not(.theme-dark) .hero-em { color: var(--text) !important; }
+:root:not(.theme-dark) .eyebrow { color: var(--primary) !important; }
+:root:not(.theme-dark) .hero-secondary { color: var(--text) !important; border-color: var(--border) !important; background: var(--bg) !important; }
+:root:not(.theme-dark) .hero-secondary:hover { background: var(--primary-light) !important; }
+:root:not(.theme-dark) .studio-light { background: radial-gradient(circle, rgba(45, 138, 78, 0.06), transparent 68%) !important; }
+:root:not(.theme-dark) .wave-field span,
+:root:not(.theme-dark) .mini-wave span { background: linear-gradient(180deg, rgba(45, 138, 78, 0.35), rgba(45, 138, 78, 0.10)) !important; }
+:root:not(.theme-dark) .section-heading h2,
+:root:not(.theme-dark) .voice-copy h2,
+:root:not(.theme-dark) .final-cta h2 { color: var(--text) !important; }
+:root:not(.theme-dark) .flow-step { color: var(--text) !important; border-color: var(--border) !important; }
+:root:not(.theme-dark) .flow-line { border-color: var(--border) !important; }
+:root:not(.theme-dark) .scene-list-item,
+:root:not(.theme-dark) .voice-copy { color: var(--text) !important; }
+:root:not(.theme-dark) .scene-list-item strong { color: var(--text) !important; }
+:root:not(.theme-dark) .scene-list-item .scene-meta,
+:root:not(.theme-dark) .voice-copy p:not(.eyebrow) { color: var(--text-secondary) !important; }
+:root:not(.theme-dark) .mixer-row { border-color: var(--border) !important; }
+:root:not(.theme-dark) .mixer-row span { color: var(--text) !important; }
+:root:not(.theme-dark) .mixer-track { background: rgba(0,0,0,0.04) !important; }
+
+:root:not(.theme-dark) .scene-carousel { border-color: var(--border) !important; background: var(--bg-card) !important; }
+:root:not(.theme-dark) .scene-carousel article { color: var(--text) !important; }
+:root:not(.theme-dark) .scene-action { background: var(--primary-light) !important; color: var(--primary) !important; border-color: var(--primary) !important; }
+:root:not(.theme-dark) .scene-action:hover { background: var(--primary) !important; color: #fff !important; }
+:root:not(.theme-dark) .scene-list-item.active { color: var(--text) !important; background: var(--primary-light) !important; box-shadow: inset 4px 0 0 var(--primary) !important; }
+:root:not(.theme-dark) .scene-list-item.active strong { color: var(--primary) !important; }
+:root:not(.theme-dark) .carousel-nav { background: var(--bg-card) !important; border-color: var(--border) !important; color: var(--text) !important; }
+:root:not(.theme-dark) .carousel-nav:hover { background: var(--primary-light) !important; }
+:root:not(.theme-dark) .carousel-dot { background: var(--border) !important; }
+:root:not(.theme-dark) .carousel-dot.active { background: var(--primary) !important; }
+:root:not(.theme-dark) .scene-linked-list { background: var(--bg-card) !important; }
 </style>

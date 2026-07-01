@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <header class="app-header" :class="{ 'home-header': isHome }">
     <div class="header-inner">
       <router-link to="/" class="logo"><Mic class="logo-icon" :size="24" /><span class="logo-text">AI Voice Studio</span></router-link>
@@ -12,7 +12,6 @@
       </nav>
       <div class="header-actions">
         <button
-          v-if="!isHome"
           class="theme-toggle"
           type="button"
           :title="isDarkMode ? '切换日间模式' : '切换夜间模式'"
