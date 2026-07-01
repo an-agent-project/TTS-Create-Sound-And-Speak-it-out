@@ -6,11 +6,13 @@ from pathlib import Path
 import httpx
 
 from app.env import load_env
+from app.services.emotion_adapter import adapt_emotion
 
 load_env()
 
 BAILIAN_TTS_PROVIDER = "bailian_tts"
 BAILIAN_TTS_DEFAULT_MODEL = "qwen3-tts-flash"
+BAILIAN_TTS_INSTRUCT_MODEL = "qwen3-tts-instruct-flash"
 BAILIAN_TTS_DEFAULT_VOICE = "Cherry"
 BAILIAN_TTS_DEFAULT_LANGUAGE = "Chinese"
 BAILIAN_LANGUAGE_TYPE_BY_OUTPUT_LANG = {
@@ -53,6 +55,10 @@ async def synthesize_bailian_to_file(
     provider_voice_id: str,
     output_path: Path,
     output_lang: str = "zh",
+    speed: float = 1.0,
+    pitch: int = 0,
+    emotion: str = "calm",
+    emotion_intensity: str = "normal",
 ) -> None:
     api_key = os.getenv("DASHSCOPE_API_KEY") or os.getenv("BAILIAN_API_KEY")
     if not api_key:
@@ -60,13 +66,15 @@ async def synthesize_bailian_to_file(
 
     model, voice = parse_bailian_provider_voice_id(provider_voice_id)
     language_type = os.getenv("BAILIAN_TTS_LANGUAGE") or _language_type_for_output_lang(output_lang)
+    adapted = adapt_emotion(BAILIAN_TTS_PROVIDER, emotion, speed, pitch, emotion_intensity)
     workspace = os.getenv("DASHSCOPE_WORKSPACE") or os.getenv("BAILIAN_WORKSPACE")
 
     response = await _call_qwen_tts(
         text=text,
-        model=model,
+        model=_instruction_model(model),
         voice=voice,
         language_type=language_type,
+        instructions=adapted.instruction,
         api_key=api_key,
         workspace=workspace,
     )
@@ -121,6 +129,7 @@ async def _call_qwen_tts(
     model: str,
     voice: str,
     language_type: str,
+    instructions: str,
     api_key: str,
     workspace: str | None,
 ):
@@ -138,6 +147,8 @@ async def _call_qwen_tts(
             "text": text,
             "voice": voice,
             "language_type": language_type,
+            "instructions": instructions,
+            "optimize_instructions": True,
             "stream": False,
         }
         if workspace:
@@ -145,6 +156,12 @@ async def _call_qwen_tts(
         return dashscope.MultiModalConversation.call(**kwargs)
 
     return await asyncio.to_thread(run_call)
+
+
+def _instruction_model(model: str) -> str:
+    return os.getenv("BAILIAN_TTS_INSTRUCT_MODEL") or (
+        BAILIAN_TTS_INSTRUCT_MODEL if model == BAILIAN_TTS_DEFAULT_MODEL else model
+    )
 
 
 def _voice_clone_url() -> str:

@@ -1,19 +1,20 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
 async function request(path, options = {}) {
+  const { headers, ...restOptions } = options;
   const response = await fetch(`${API_BASE}${path}`, {
+    ...restOptions,
     headers: {
       "Content-Type": "application/json",
-      ...(options.headers || {}),
+      ...(headers || {}),
     },
-    ...options,
   });
 
   if (!response.ok) {
-    let message = `请求失败，{response.status}`;
+    let message = `请求失败，${response.status}`;
     try {
       const data = await response.json();
-      message = data.detail || message;
+      message = errorMessage(data.detail || data.message, message);
     } catch {
       // Keep the generic message when the response is not JSON.
     }
@@ -31,7 +32,7 @@ function errorMessage(detail, fallback) {
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) {
     const missingAuth = detail.some((item) => item?.loc?.includes("authorization"));
-    if (missingAuth) return "请先登录后再克隆音色";
+    if (missingAuth) return "请先登录后再继续操作";
   }
   return detail.message || detail.msg || JSON.stringify(detail);
 }
@@ -67,8 +68,8 @@ export async function fetchVoices() {
 
     return {
       ...voice,
-      id: voice.voiceKey || voice.id,
       dbId: voice.id,
+      id: voice.voiceKey || voice.id,
       name: voice.displayName || voice.name,
       providerVoiceId: provider?.providerVoiceId,
       isSystemVoice: voice.ownerId == null,
@@ -76,9 +77,16 @@ export async function fetchVoices() {
   });
 }
 
+export function deleteVoiceById(id) {
+  return request(`/voices/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+}
+
 export function fetchMaterials(category = "") {
   const query = category ? `?category=${encodeURIComponent(category)}` : "";
-  return request(`/materials${query}`);
+  return request(`/materials${query}`, { headers: authHeaders() });
 }
 
 export async function uploadMaterial(formData) {
@@ -88,7 +96,7 @@ export async function uploadMaterial(formData) {
     body: formData,
   });
   if (!response.ok) {
-    let message = `请求失败，{response.status}`;
+    let message = `请求失败，${response.status}`;
     try {
       const data = await response.json();
       message = errorMessage(data.detail, message);
@@ -107,7 +115,7 @@ export async function createVoiceClone(formData) {
     body: formData,
   });
   if (!response.ok) {
-    let message = `请求失败，{response.status}`;
+    let message = `请求失败，${response.status}`;
     try {
       const data = await response.json();
       message = errorMessage(data.detail, message);
@@ -119,12 +127,6 @@ export async function createVoiceClone(formData) {
   return response.json();
 }
 
-export function deleteVoiceById(id) {
-  return request(`/voices/${id}`, {
-    method: "DELETE",
-    headers: authHeaders(),
-  });
-}
 export function translateText(payload) {
   return request("/text/translate", {
     method: "POST",
@@ -148,17 +150,19 @@ export function synthesizeVoicePreview(payload) {
 export function generateTts(payload) {
   return request("/tts/generate", {
     method: "POST",
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   });
 }
 
 export function fetchWorks() {
-  return request("/works");
+  return request("/works", { headers: authHeaders() });
 }
 
 export function deleteWorkById(id) {
   return request(`/works/${id}`, {
     method: "DELETE",
+    headers: authHeaders(),
   });
 }
 
@@ -184,6 +188,7 @@ export async function fetchPersonalVoices() {
       voice.providers?.find((item) => item.isActive);
     return {
       ...voice,
+      dbId: voice.id,
       name: voice.displayName || voice.name,
       providerVoiceId: provider?.providerVoiceId,
     };

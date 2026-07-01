@@ -16,6 +16,7 @@ const routes = [
     path: "/workspace",
     name: "Workspace",
     component: () => import("../views/Workspace.vue"),
+    meta: { requiresAuth: true },
   },
   {
     path: "/extract",
@@ -31,17 +32,20 @@ const routes = [
     path: "/voices",
     name: "VoiceLibrary",
     component: () => import("../views/VoiceLibrary.vue"),
+    meta: { requiresAuth: true },
   },
   {
     path: "/workshop",
     name: "Workshop",
     component: () => import("../views/WorkshopPage.vue"),
+    meta: { requiresAuth: true },
   },
 
   {
     path: "/my-works",
     name: "MyWorks",
     component: () => import("../views/MyWorks.vue"),
+    meta: { requiresAuth: true },
   },
   {
     path: "/profile",
@@ -98,14 +102,8 @@ router.beforeEach((to, from, next) => {
   const token = localStorage.getItem("auth_token");
   const sessionUser = sessionStorage.getItem("user");
 
-  // Debug: log auth state
-  if (to.meta.requiresAuth || to.meta.requiresAdmin) {
-    console.log("[Router] navigating to", to.path, "| token:", !!token, "| sessionUser:", !!sessionUser);
-  }
-
   if (to.meta.requiresAuth) {
     if (!token && !sessionUser) {
-      console.log("[Router] NO AUTH -> redirect to /login");
       next("/login");
       return;
     }
@@ -113,7 +111,6 @@ router.beforeEach((to, from, next) => {
 
   if (to.meta.requiresAdmin) {
     if (!token && !sessionUser) {
-      console.log("[Router] NO AUTH (admin) -> redirect to /login");
       next("/login");
       return;
     }

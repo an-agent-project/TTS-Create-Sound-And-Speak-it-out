@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="admin-shell">
     <aside class="sidebar">
       <router-link to="/" class="sidebar-brand"><Shield :size="20" /> 管理后台</router-link>

@@ -211,6 +211,7 @@ class MaterialRead(CamelModel):
     duration_seconds: int = Field(alias="duration")
     file_size_bytes: int = Field(alias="fileSize")
     uploader: str
+    owner_id: int | None = Field(default=None, alias="ownerId")
     audio_url: str = Field(alias="audioUrl")
     license: str | None = None
     source_url: str | None = Field(default=None, alias="sourceUrl")

@@ -30,8 +30,21 @@ def test_audio_player_uses_external_playing_state_for_managed_audio():
 def test_voice_api_maps_active_provider_voice_id():
     source = API_PATH.read_text(encoding="utf-8")
 
+    assert "dbId: voice.id" in source
     assert "item.isActive && item.isDefault" in source
     assert "providerVoiceId: provider?.providerVoiceId" in source
+
+
+def test_voice_library_deletes_voice_through_api_and_clears_workspace_selection():
+    api_source = API_PATH.read_text(encoding="utf-8")
+    library_source = (ROOT_DIR / "src" / "views" / "VoiceLibrary.vue").read_text(encoding="utf-8")
+    workspace_source = WORKSPACE_PATH.read_text(encoding="utf-8")
+
+    assert "export function deleteVoiceById" in api_source
+    assert 'method: "DELETE"' in api_source
+    assert "await deleteVoiceById(voice.dbId)" in library_source
+    assert "store.selectedVoice = null" in library_source
+    assert "selectedVoice.value = null" in workspace_source
 
 
 def test_workspace_clear_speed_and_pitch_controls_are_wired():

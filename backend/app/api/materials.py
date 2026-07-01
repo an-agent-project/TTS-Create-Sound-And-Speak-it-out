@@ -4,7 +4,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user
+from app.auth import get_current_user, get_optional_user
 from app.database import get_db
 from app.material_defaults import seed_default_materials
 from app.models import Material, User
@@ -19,9 +19,17 @@ ALLOWED_AUDIO_TYPES = {"audio/mpeg", "audio/mp3", "audio/ogg", "audio/wav", "aud
 
 
 @router.get("", response_model=list[MaterialRead])
-def list_materials(category: str | None = None, db: Session = Depends(get_db)) -> list[Material]:
+def list_materials(
+    category: str | None = None,
+    current_user: User | None = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+) -> list[Material]:
     seed_default_materials(db)
     query = db.query(Material).filter(Material.is_active.is_(True))
+    if current_user:
+        query = query.filter((Material.owner_id.is_(None)) | (Material.owner_id == current_user.id))
+    else:
+        query = query.filter(Material.owner_id.is_(None))
     if category:
         query = query.filter(Material.category == category)
     return query.order_by(Material.id.asc()).all()
@@ -52,6 +60,7 @@ async def upload_material(file: UploadFile = File(...), current_user: User = Dep
         format=ext.lstrip("."),
         file_size_bytes=len(audio_bytes),
         uploader=current_user.username,
+        owner_id=current_user.id,
         audio_path=str(output_path),
         audio_url=f"/media/materials/{filename}",
     )

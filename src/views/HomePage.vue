@@ -1,429 +1,869 @@
-﻿<template>
+<template>
   <div class="home-page">
-    <!-- Hero -->
     <section class="hero">
-      <div class="hero-content">
-        <h1 class="hero-title">
-          <Mic :size="40" class="hero-icon" />
-          一键配音，让创作更简单
-        </h1>
-        <p class="hero-desc">
-          面向内容创作者的个性化有声读物智能生成系统 — 选择场景、粘贴文本、一键生成，几分钟获得专业配音效果
-        </p>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="studio-light"></div>
+        <div class="wave-field">
+          <span v-for="bar in 44" :key="bar" :style="{ '--i': bar }"></span>
+        </div>
+      </div>
+
+      <div class="hero-copy reveal-on-scroll">
+        <p class="eyebrow">AI voice studio</p>
+        <h1>AI Voice Studio</h1>
+        <p class="hero-desc">Text in. Voice out.</p>
         <div class="hero-actions">
           <router-link to="/workspace" class="btn btn-primary btn-lg">
-            <Rocket :size="18" /> 立即开始创作
+            <Rocket :size="18" /> 开始创作
           </router-link>
-          <router-link to="/voices" class="btn btn-secondary btn-lg">
-            <Drama :size="18" /> 浏览音色库
+          <router-link to="/voices/public" class="btn hero-secondary btn-lg">
+            <Drama :size="18" /> 试听音色
           </router-link>
         </div>
       </div>
-      <div class="hero-stats">
-        <div class="stat-item">
-          <div class="stat-value">20+</div>
-          <div class="stat-label">预设音色</div>
+
+      <div class="hero-monitor reveal-on-scroll" aria-label="音频生成状态">
+        <div class="monitor-top">
+          <span>Scene</span>
+          <strong>知识讲解</strong>
         </div>
-        <div class="stat-item">
-          <div class="stat-value">4</div>
-          <div class="stat-label">创作场景</div>
+        <div class="monitor-line">
+          <span>Voice</span>
+          <strong>晓晓 · 温柔</strong>
         </div>
-        <div class="stat-item">
-          <div class="stat-value">1键</div>
-          <div class="stat-label">快速生成</div>
+        <div class="monitor-line">
+          <span>Emotion</span>
+          <strong>calm / strong</strong>
         </div>
-        <div class="stat-item">
-          <div class="stat-value">免费</div>
-          <div class="stat-label">零成本使用</div>
+        <div class="mini-wave">
+          <span v-for="bar in 24" :key="bar" :style="{ '--i': bar }"></span>
         </div>
       </div>
     </section>
 
-    <!-- How It Works -->
-    <section class="section">
-      <div class="section-title">
-        <Sparkles :size="22" class="title-icon" /> 三步完成配音
+    <section class="flow-section reveal-on-scroll">
+      <div class="section-heading">
+        <p class="eyebrow">Workflow</p>
+        <h2>四步成片</h2>
       </div>
-      <div class="steps">
-        <div class="step-card">
-          <div class="step-number">1</div>
-          <div class="step-icon"><Clapperboard :size="40" /></div>
-          <h3>选择场景</h3>
-          <p>播客、知识讲解、故事叙述、情感朗读… 选择最适合你内容的场景模板</p>
-        </div>
-        <div class="step-arrow">&rarr;</div>
-        <div class="step-card">
-          <div class="step-number">2</div>
-          <div class="step-icon"><FileText :size="40" /></div>
-          <h3>粘贴文本</h3>
-          <p>直接输入或上传文本文件，智能分段自动为你处理排版</p>
-        </div>
-        <div class="step-arrow">&rarr;</div>
-        <div class="step-card">
-          <div class="step-number">3</div>
-          <div class="step-icon"><SlidersHorizontal :size="40" /></div>
-          <h3>一键生成</h3>
-          <p>选择音色、调整参数，一键生成专业级有声读物，即刻试听导出</p>
-        </div>
+      <div class="flow-line">
+        <button
+          v-for="step in workflow"
+          :key="step.title"
+          class="flow-step"
+          type="button"
+        >
+          <component :is="step.icon" :size="22" />
+          <span>{{ step.title }}</span>
+          <small>{{ step.text }}</small>
+        </button>
       </div>
     </section>
 
-    <!-- Scenes -->
-    <section class="section">
-      <div class="section-title">
-        <Clapperboard :size="22" class="title-icon" /> 创作场景
+    <section class="scenes-section reveal-on-scroll">
+      <div class="section-heading">
+        <p class="eyebrow">Scenes</p>
+        <h2>场景即风格</h2>
       </div>
-      <div class="grid grid-4">
-        <SceneCard
-          v-for="scene in scenes"
-          :key="scene.id"
-          :scene="scene"
-          @select="goToWorkspace(scene.id)"
-        />
-      </div>
-    </section>
+      <div class="scene-showcase">
+        <div class="scene-carousel">
+          <button class="carousel-nav prev" type="button" aria-label="上一个场景" @click="prevScene">
+            <ChevronLeft :size="24" />
+          </button>
 
-    <!-- Featured Voices -->
-    <section class="section">
-      <div class="section-title">
-        <Drama :size="22" class="title-icon" /> 推荐音色
-      </div>
-      <div class="grid grid-4">
-        <VoiceCard
-          v-for="voice in featuredVoices"
-          :key="voice.id"
-          :voice="voice"
-          :is-favorite="store.isFavorite(voice.id)"
-          :show-preview="true"
-          @toggle-favorite="store.toggleFavoriteVoice(voice.id)"
-        />
-      </div>
-      <div class="section-footer">
-        <router-link to="/voices" class="btn btn-secondary">
-          查看全部音色 &rarr;
-        </router-link>
-      </div>
-    </section>
+          <article class="scene-banner" :key="activeScene.id">
+            <component :is="activeScene.iconComponent" :size="34" />
+            <p class="scene-kicker">{{ activeScene.kicker }}</p>
+            <h3>{{ activeScene.name }}</h3>
+            <p>{{ activeScene.description }}</p>
+            <button class="scene-action" type="button" @click="goToWorkspace(activeScene.id)">使用场景</button>
+          </article>
 
-    <!-- Case Demos -->
-    <section class="section">
-      <div class="section-title">
-        <Headphones :size="22" class="title-icon" /> 效果案例
-      </div>
-      <div class="grid grid-3">
-        <div v-for="demo in demos" :key="demo.title" class="card demo-card">
-          <div class="demo-icon"><component :is="demo.lucideIcon" :size="36" /></div>
-          <h3 class="demo-title">{{ demo.title }}</h3>
-          <p class="demo-text">{{ demo.text }}</p>
-          <div class="demo-tags">
-            <span class="tag tag-primary">{{ demo.scene }}</span>
-            <span class="tag tag-success">{{ demo.voice }}</span>
+          <button class="carousel-nav next" type="button" aria-label="下一个场景" @click="nextScene">
+            <ChevronRight :size="24" />
+          </button>
+
+          <div class="carousel-dots" aria-label="场景分页">
+            <button
+              v-for="(scene, index) in scenes"
+              :key="scene.id"
+              class="carousel-dot"
+              :class="{ active: activeSceneIndex === index }"
+              type="button"
+              :aria-label="scene.name"
+              @click="setActiveScene(index)"
+            ></button>
           </div>
         </div>
+
+        <div class="scene-linked-list" aria-label="场景列表">
+          <button
+            v-for="(scene, index) in scenes"
+            :key="scene.id"
+            class="scene-list-item"
+            :class="{ active: activeSceneIndex === index }"
+            type="button"
+            :aria-label="scene.name"
+            @click="setActiveScene(index)"
+          >
+            <component :is="scene.iconComponent" :size="21" />
+            <span>
+              <strong>{{ scene.name }}</strong>
+              <small>{{ scene.description }}</small>
+            </span>
+          </button>
+        </div>
       </div>
+    </section>
+
+    <section class="voice-section reveal-on-scroll">
+      <div class="voice-copy">
+        <p class="eyebrow">Voice & Emotion</p>
+        <h2>声音有情绪</h2>
+        <p>音色、情感、强度，一起调。</p>
+        <router-link to="/workspace" class="btn btn-primary">
+          <SlidersHorizontal :size="17" /> 调整一次
+        </router-link>
+      </div>
+      <div class="mixer">
+        <div v-for="track in emotionTracks" :key="track.label" class="mixer-row">
+          <span>{{ track.label }}</span>
+          <div class="mixer-track">
+            <i :style="{ '--level': track.value + '%', '--pulse': track.pulse + 'px', '--delay': track.delay + 's' }"></i>
+          </div>
+          <strong>{{ track.value }}%</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="final-cta reveal-on-scroll">
+      <p class="eyebrow">Start</p>
+      <h2>从一段文本开始。</h2>
+      <router-link to="/workspace" class="btn btn-primary btn-lg">
+        <FileText :size="18" /> 进入创作工作台
+      </router-link>
     </section>
   </div>
 </template>
 
 <script setup>
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAppStore } from "../stores/app.js";
-import SceneCard from "../components/SceneCard.vue";
-import VoiceCard from "../components/VoiceCard.vue";
 import {
-  Mic, Rocket, Drama, Sparkles, Clapperboard, FileText, SlidersHorizontal,
-  Headphones, BookOpen, Library, Heart, Podcast
-} from 'lucide-vue-next'
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Clapperboard,
+  Drama,
+  FileText,
+  Heart,
+  Library,
+  Mic,
+  Rocket,
+  SlidersHorizontal,
+} from "lucide-vue-next";
 
 const router = useRouter();
 const store = useAppStore();
+let revealObserver;
+let sceneTimer;
+
+const workflow = [
+  { title: "文本", text: "粘贴 / 上传", icon: FileText },
+  { title: "场景", text: "选择模板", icon: Clapperboard },
+  { title: "音色", text: "自动匹配", icon: Drama },
+  { title: "作品", text: "生成保存", icon: Rocket },
+];
 
 const scenes = [
   {
     id: "podcast",
     name: "播客模式",
     iconComponent: Mic,
-    description: "适合播客节目、脱口秀类内容，语气自然随性",
-    color: "var(--primary)",
-    defaultSpeed: 1.0,
+    description: "自然对谈",
+    kicker: "Podcast",
   },
   {
     id: "lecture",
     name: "知识讲解",
     iconComponent: BookOpen,
-    description: "适合课程录制、知识分享，语气沉稳专业",
-    color: "#10b981",
-    defaultSpeed: 0.9,
+    description: "清晰稳重",
+    kicker: "Lecture",
   },
   {
     id: "storytelling",
     name: "故事叙述",
     iconComponent: Library,
-    description: "适合有声小说、儿童故事，情感丰富饱满",
-    color: "#f59e0b",
-    defaultSpeed: 0.85,
+    description: "节奏叙事",
+    kicker: "Story",
   },
   {
     id: "emotional",
     name: "情感朗读",
     iconComponent: Heart,
-    description: "适合散文诗歌、情感表达，语调柔和动人",
-    color: "#ef4444",
-    defaultSpeed: 0.8,
+    description: "柔和表达",
+    kicker: "Emotion",
   },
 ];
 
-const featuredVoices = [
-  {
-    id: "zh-CN-XiaoxiaoNeural",
-    name: "晓晓",
-    gender: "female",
-    style: "温柔",
-    category: "知识类",
-    description: "温柔知性的女声，适合知识讲解、课程录制",
-    isRecommended: true,
-  },
-  {
-    id: "zh-CN-YunxiNeural",
-    name: "云希",
-    gender: "male",
-    style: "磁性",
-    category: "故事类",
-    description: "磁性的男声，适合故事叙述、播客节目",
-    isRecommended: true,
-  },
-  {
-    id: "zh-CN-XiaoyiNeural",
-    name: "晓伊",
-    gender: "female",
-    style: "活泼",
-    category: "情感类",
-    description: "活泼可爱的女声，适合轻松内容、情感表达",
-    isRecommended: true,
-  },
-  {
-    id: "zh-CN-YunxiaNeural",
-    name: "云夏",
-    gender: "male",
-    style: "沉稳",
-    category: "知识类",
-    description: "沉稳专业的男声，适合纪录片、教程配音",
-    isRecommended: true,
-  },
-];
+const activeSceneIndex = ref(0);
+const activeScene = computed(() => scenes[activeSceneIndex.value]);
 
-const demos = [
-  {
-    lucideIcon: Podcast,
-    title: "播客节目开场",
-    text: "大家好，欢迎收听本期节目，今天我们要聊的话题是人工智能如何改变内容创作...",
-    scene: "播客模式",
-    voice: "云希 · 磁性男声",
-  },
-  {
-    lucideIcon: BookOpen,
-    title: "知识课程讲解",
-    text: "今天我们学习Python的基础语法，首先了解变量的概念。变量就像是一个容器，用来存储数据...",
-    scene: "知识讲解",
-    voice: "晓晓 · 温柔女声",
-  },
-  {
-    lucideIcon: Sparkles,
-    title: "儿童故事朗读",
-    text: "从前有一座山，山里住着一位老爷爷，他每天都会给小动物们讲有趣的故事...",
-    scene: "故事叙述",
-    voice: "晓伊 · 活泼女声",
-  },
+const emotionTracks = [
+  { label: "清晰度", value: 92, pulse: 24, delay: 0 },
+  { label: "情感强度", value: 74, pulse: 42, delay: -0.9 },
+  { label: "音色表现力", value: 86, pulse: 32, delay: -1.45 },
+  { label: "背景融合", value: 58, pulse: 52, delay: -0.45 },
 ];
 
 function goToWorkspace(sceneId) {
-  store.selectedScene = scenes.find((s) => s.id === sceneId);
+  store.selectedScene = scenes.find((scene) => scene.id === sceneId);
   router.push("/workspace");
 }
+
+function setActiveScene(index) {
+  activeSceneIndex.value = index;
+}
+
+function nextScene() {
+  activeSceneIndex.value = (activeSceneIndex.value + 1) % scenes.length;
+}
+
+function prevScene() {
+  activeSceneIndex.value = (activeSceneIndex.value - 1 + scenes.length) % scenes.length;
+}
+
+onMounted(() => {
+  revealObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.18 },
+  );
+  document.querySelectorAll(".reveal-on-scroll").forEach((el) => revealObserver.observe(el));
+
+  sceneTimer = window.setInterval(() => {
+    nextScene();
+  }, 3600);
+});
+
+onBeforeUnmount(() => {
+  revealObserver?.disconnect();
+  window.clearInterval(sceneTimer);
+});
 </script>
 
 <style scoped>
+.home-page {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  padding: 0 max(24px, calc((100vw - 1120px) / 2)) 72px;
+  background:
+    radial-gradient(circle at 82% 38%, rgba(45, 138, 78, 0.18), transparent 28%),
+    linear-gradient(180deg, #071210 0%, #091713 46%, #07120f 100%);
+  color: #f7fbf7;
+}
+
 .hero {
-  text-align: center;
-  padding: 60px 20px 40px;
-  background: linear-gradient(135deg, var(--primary-light) 0%, #faf5ff 100%);
-  border-radius: var(--radius);
-  margin-top: 24px;
-}
-
-.hero-title {
-  font-size: 40px;
-  font-weight: 800;
-  color: var(--text);
-  margin-bottom: 16px;
-  line-height: 1.3;
-  display: flex;
+  position: relative;
+  width: 100vw;
+  min-height: calc(100svh - 84px);
+  margin-left: calc(-1 * max(24px, calc((100vw - 1120px) / 2)));
+  padding: 72px max(24px, calc((100vw - 1120px) / 2)) 56px;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(6, 18, 17, 0.94) 0%, rgba(7, 23, 20, 0.88) 46%, rgba(10, 40, 31, 0.72) 100%),
+    radial-gradient(circle at 74% 26%, rgba(48, 165, 103, 0.5), transparent 32%),
+    linear-gradient(135deg, #071210, #15352b);
+  color: #f7fbf7;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.75fr);
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  gap: 48px;
 }
 
-.hero-icon {
-  color: var(--primary);
-  flex-shrink: 0;
+.hero-visual {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.studio-light {
+  position: absolute;
+  right: 8%;
+  top: 12%;
+  width: 34vw;
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(68, 204, 122, 0.28), transparent 68%);
+  filter: blur(12px);
+}
+
+.wave-field {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10%;
+  height: 28vh;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: clamp(4px, 0.8vw, 13px);
+  opacity: 0.38;
+}
+
+.wave-field span,
+.mini-wave span {
+  width: clamp(3px, 0.42vw, 7px);
+  height: calc(22px + (var(--i) % 9) * 13px);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(231, 255, 238, 0.95), rgba(53, 191, 107, 0.45));
+  animation: pulse-wave 2.8s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.08s);
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 660px;
+}
+
+.eyebrow {
+  color: #64c987;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.hero h1 {
+  font-size: clamp(46px, 8vw, 92px);
+  line-height: 1.02;
+  font-weight: 900;
+  max-width: 760px;
 }
 
 .hero-desc {
-  font-size: 17px;
-  color: var(--text-secondary);
-  max-width: 680px;
-  margin: 0 auto 32px;
-  line-height: 1.7;
+  margin: 22px 0 32px;
+  max-width: 520px;
+  color: rgba(247, 251, 247, 0.78);
+  font-size: 18px;
+  line-height: 1.8;
 }
 
 .hero-actions {
   display: flex;
   gap: 12px;
-  justify-content: center;
   flex-wrap: wrap;
 }
 
-.hero-stats {
-  display: flex;
-  justify-content: center;
-  gap: 48px;
-  margin-top: 48px;
-  padding-top: 32px;
-  border-top: 1px solid var(--border);
+.hero-secondary {
+  color: #f7fbf7;
+  border: 1px solid rgba(247, 251, 247, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
 }
 
-.stat-item {
-  text-align: center;
+.hero-secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
-.stat-value {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--primary);
-}
-
-.stat-label {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-
-/* Section title icon */
-.title-icon {
-  color: var(--primary);
-  flex-shrink: 0;
-}
-
-/* Steps */
-.steps {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.step-card {
-  flex: 1;
-  text-align: center;
-  padding: 28px 20px;
-  background: var(--bg-card);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
+.hero-monitor {
   position: relative;
+  z-index: 1;
+  width: min(100%, 380px);
+  justify-self: end;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(7, 20, 18, 0.5);
+  backdrop-filter: blur(18px);
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.26);
 }
 
-.step-number {
-  position: absolute;
-  top: -12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--primary);
-  color: #fff;
+.monitor-top,
+.monitor-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.monitor-top span,
+.monitor-line span {
+  color: rgba(247, 251, 247, 0.54);
   font-size: 13px;
+}
+
+.monitor-top strong,
+.monitor-line strong {
+  color: #fff;
+  font-size: 14px;
+}
+
+.mini-wave {
+  height: 86px;
+  display: flex;
+  align-items: end;
+  gap: 6px;
+  padding-top: 22px;
+}
+
+.mini-wave span {
+  width: 6px;
+}
+
+.flow-section,
+.scenes-section,
+.voice-section,
+.final-cta {
+  padding: 88px 0 0;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 32px;
+  margin-bottom: 28px;
+}
+
+.section-heading h2,
+.voice-copy h2,
+.final-cta h2 {
+  font-size: clamp(30px, 4vw, 48px);
+  line-height: 1.15;
+  max-width: 680px;
+  color: #f7fbf7;
+}
+
+.flow-line {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid rgba(126, 211, 148, 0.2);
+  border-bottom: 1px solid rgba(126, 211, 148, 0.2);
+}
+
+.flow-step {
+  min-height: 160px;
+  padding: 28px 24px;
+  text-align: left;
+  background: transparent;
+  color: #f7fbf7;
+  border-right: 1px solid rgba(126, 211, 148, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.flow-step:last-child {
+  border-right: 0;
+}
+
+.flow-step svg,
+.scene-banner svg {
+  color: #64c987;
+}
+
+.flow-step span {
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.flow-step small {
+  color: rgba(247, 251, 247, 0.62);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.flow-step:hover {
+  background: rgba(100, 201, 135, 0.1);
+  transform: translateY(-2px);
+}
+
+.scene-showcase {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr);
+  gap: 28px;
+  align-items: stretch;
+}
+
+.scene-carousel {
+  position: relative;
+  min-height: 420px;
+  border: 1px solid rgba(126, 211, 148, 0.18);
+  background:
+    radial-gradient(circle at 78% 26%, rgba(100, 201, 135, 0.16), transparent 34%),
+    linear-gradient(135deg, rgba(45, 138, 78, 0.12), transparent 50%),
+    rgba(7, 20, 18, 0.52);
+  overflow: hidden;
+}
+
+.scene-banner {
+  min-height: 100%;
+  padding: 54px 74px 74px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+  animation: scene-fade 0.42s ease;
+}
+
+.scene-kicker {
+  color: #64c987;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.scene-banner h3 {
+  font-size: clamp(34px, 4vw, 58px);
+  line-height: 1;
+}
+
+.scene-banner p:not(.scene-kicker) {
+  color: rgba(247, 251, 247, 0.62);
+  font-size: 18px;
+}
+
+.scene-action {
+  width: max-content;
+  margin-top: 6px;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  background: rgba(100, 201, 135, 0.12);
+  color: #f7fbf7;
+  border: 1px solid rgba(126, 211, 148, 0.18);
   font-weight: 700;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.scene-action:hover {
+  background: rgba(100, 201, 135, 0.22);
+  transform: translateY(-1px);
+}
+
+.carousel-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #f7fbf7;
+  background: rgba(7, 20, 18, 0.62);
+  border: 1px solid rgba(126, 211, 148, 0.2);
+  transform: translateY(-50%);
+  transition: background var(--transition), transform var(--transition);
 }
 
-.step-icon {
-  margin: 8px 0 12px;
-  color: var(--primary);
+.carousel-nav:hover {
+  background: rgba(100, 201, 135, 0.18);
+  transform: translateY(-50%) scale(1.04);
+}
+
+.carousel-nav.prev {
+  left: 24px;
+}
+
+.carousel-nav.next {
+  right: 24px;
+}
+
+.carousel-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
   display: flex;
-  justify-content: center;
+  gap: 10px;
+  z-index: 2;
 }
 
-.step-card h3 {
+.carousel-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(247, 251, 247, 0.28);
+  transition: width var(--transition), background var(--transition);
+}
+
+.carousel-dot.active {
+  width: 26px;
+  border-radius: 999px;
+  background: #64c987;
+}
+
+.scene-linked-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 420px;
+  border: 1px solid rgba(126, 211, 148, 0.18);
+  background: rgba(7, 20, 18, 0.42);
+}
+
+.scene-list-item {
+  flex: 1;
+  min-height: 96px;
+  padding: 22px 24px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+  color: rgba(247, 251, 247, 0.62);
+  background: transparent;
+  border-bottom: 1px solid rgba(126, 211, 148, 0.16);
+  transition: background var(--transition), color var(--transition), transform var(--transition);
+}
+
+.scene-list-item:last-child {
+  border-bottom: 0;
+}
+
+.scene-list-item svg {
+  color: #64c987;
+}
+
+.scene-list-item span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.scene-list-item strong {
+  color: #f7fbf7;
+  font-size: 19px;
+  line-height: 1.25;
+}
+
+.scene-list-item small {
+  color: currentColor;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.scene-list-item:hover {
+  background: rgba(100, 201, 135, 0.08);
+  color: rgba(247, 251, 247, 0.78);
+}
+
+.scene-list-item.active {
+  color: rgba(247, 251, 247, 0.86);
+  background:
+    linear-gradient(90deg, rgba(100, 201, 135, 0.2), rgba(100, 201, 135, 0.06)),
+    rgba(100, 201, 135, 0.08);
+  box-shadow: inset 4px 0 0 #64c987;
+}
+
+.scene-list-item.active strong {
+  color: #ffffff;
+}
+
+@keyframes scene-fade {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.voice-section {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(300px, 1fr);
+  gap: 56px;
+  align-items: center;
+}
+
+.voice-copy p:not(.eyebrow) {
+  color: rgba(247, 251, 247, 0.66);
   font-size: 17px;
-  margin-bottom: 8px;
-  color: var(--text);
+  line-height: 1.8;
+  margin: 18px 0 26px;
+  max-width: 520px;
 }
 
-.step-card p {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.6;
+.mixer {
+  padding: 12px 0;
+  border-top: 1px solid rgba(126, 211, 148, 0.2);
+  border-bottom: 1px solid rgba(126, 211, 148, 0.2);
 }
 
-.step-arrow {
-  font-size: 28px;
-  color: var(--text-muted);
-  flex-shrink: 0;
+.mixer-row {
+  display: grid;
+  grid-template-columns: 96px 1fr 46px;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(126, 211, 148, 0.16);
 }
 
-/* Demo cards */
-.demo-card {
-  cursor: default;
+.mixer-row:last-child {
+  border-bottom: 0;
 }
 
-.demo-icon {
-  margin-bottom: 12px;
-  color: var(--primary);
-}
-
-.demo-title {
-  font-size: 16px;
+.mixer-row span {
   font-weight: 700;
-  margin-bottom: 8px;
 }
 
-.demo-text {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.7;
-  margin-bottom: 12px;
+.mixer-row strong {
+  color: #64c987;
+  font-size: 14px;
+}
+
+.mixer-track {
+  height: 8px;
+  background: rgba(247, 251, 247, 0.14);
+  border-radius: 999px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
 }
 
-.demo-tags {
-  display: flex;
-  gap: 6px;
+.mixer-track i {
+  position: relative;
+  display: block;
+  height: 100%;
+  width: var(--level);
+  background: linear-gradient(90deg, #2d8a4e, #7ed394);
+  border-radius: inherit;
+  overflow: hidden;
+  animation: level-wave 4.2s ease-in-out infinite;
+  animation-delay: var(--delay);
 }
 
-.section-footer {
-  margin-top: 20px;
+
+.final-cta {
   text-align: center;
 }
 
-@media (max-width: 768px) {
-  .hero-title {
-    font-size: 28px;
+.final-cta h2 {
+  margin: 0 auto 24px;
+}
+
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(34px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.reveal-on-scroll.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes pulse-wave {
+  0%,
+  100% {
+    transform: scaleY(0.48);
   }
-  .hero-stats {
-    gap: 24px;
-    flex-wrap: wrap;
+  50% {
+    transform: scaleY(1);
   }
-  .steps {
-    flex-direction: column;
+}
+
+@keyframes level-wave {
+  0%,
+  100% {
+    width: calc(var(--level) - var(--pulse));
+    filter: saturate(1);
   }
-  .step-arrow {
-    transform: rotate(90deg);
+  50% {
+    width: min(100%, calc(var(--level) + var(--pulse)));
+    filter: saturate(1.24) brightness(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave-field span,
+  .mini-wave span,
+  .mixer-track i,
+  .reveal-on-scroll {
+    animation: none;
+    transition: none;
+  }
+  .reveal-on-scroll {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .hero {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    padding-top: 56px;
+  }
+  .hero-monitor {
+    justify-self: start;
+  }
+  .flow-line,
+  .voice-section {
+    grid-template-columns: 1fr;
+  }
+  .flow-step {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .flow-step:last-child {
+    border-bottom: 0;
+  }
+  .scene-showcase {
+    grid-template-columns: 1fr;
+  }
+  .scene-carousel {
+    min-height: 390px;
+  }
+  .scene-linked-list {
+    min-height: auto;
+  }
+  .scene-list-item {
+    min-height: 78px;
+  }
+  .scene-banner {
+    padding: 32px;
+    padding-bottom: 72px;
+  }
+}
+
+@media (max-width: 600px) {
+  .hero {
+    padding: 44px 18px 48px;
+  }
+  .hero h1 {
+    font-size: 42px;
+  }
+  .hero-desc {
+    font-size: 16px;
+  }
+  .hero-actions .btn {
+    width: 100%;
+  }
+  .flow-section,
+  .scenes-section,
+  .voice-section,
+  .final-cta {
+    padding-top: 64px;
+  }
+  .mixer-row {
+    grid-template-columns: 82px 1fr;
+  }
+  .mixer-row strong {
+    display: none;
   }
 }
 </style>

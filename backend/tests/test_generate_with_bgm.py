@@ -5,9 +5,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.auth import create_access_token, hash_password
 from app.database import get_db
 from app.main import app
-from app.models import Base, Material
+from app.models import Base, Material, User
 
 
 def test_generate_tts_mixes_selected_bgm(monkeypatch, tmp_path):
@@ -22,6 +23,9 @@ def test_generate_tts_mixes_selected_bgm(monkeypatch, tmp_path):
     bgm_path = tmp_path / "bgm.ogg"
     bgm_path.write_bytes(b"bgm")
     db = TestingSessionLocal()
+    user = User(username="bgm-user", password_hash=hash_password("secret"))
+    db.add(user)
+    db.flush()
     db.add(
         Material(
             material_key="test-bgm",
@@ -35,6 +39,7 @@ def test_generate_tts_mixes_selected_bgm(monkeypatch, tmp_path):
         )
     )
     db.commit()
+    token = create_access_token(user.id)
     db.close()
 
     def override_get_db():
@@ -64,6 +69,7 @@ def test_generate_tts_mixes_selected_bgm(monkeypatch, tmp_path):
     try:
         response = TestClient(app).post(
             "/api/tts/generate",
+            headers={"Authorization": f"Bearer {token}"},
             json={
                 "content": "你好，测试背景音乐。",
                 "voiceId": "zh-CN-XiaoxiaoNeural",

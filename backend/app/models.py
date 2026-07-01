@@ -101,6 +101,7 @@ class Material(Base):
     duration_seconds = Column(Integer, nullable=False, default=0)
     file_size_bytes = Column(Integer, nullable=False, default=0)
     uploader = Column(String(100), nullable=False, default="绯荤粺绱犳潗")
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     audio_path = Column(String(500), nullable=False)
     audio_url = Column(String(500), nullable=False)
     license = Column(String(100))

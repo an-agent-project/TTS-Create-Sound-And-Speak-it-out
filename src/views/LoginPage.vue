@@ -28,8 +28,8 @@
     <div class="login-right">
       <div class="form-wrapper">
         <div class="form-header">
-          <h2>{{ isRegister ? "创建账号" : "欢迎回来" }}</h2>
-          <p>{{ isRegister ? "注册后即可使用全部功能" : "登录账号继续创作" }}</p>
+          <h2>{{ pageTitle }}</h2>
+          <p>{{ pageSubtitle }}</p>
         </div>
 
         <form v-if="!isRegister && !isResetPassword" class="auth-form" @submit.prevent="handleLogin">
@@ -139,7 +139,6 @@
           </button>
         </form>
 
-
         <form v-else class="auth-form" @submit.prevent="handleResetPassword">
           <div class="input-group">
             <label>邮箱</label>
@@ -197,8 +196,13 @@
           <button type="submit" class="submit-btn" :disabled="resettingPassword">
             {{ resettingPassword ? "重置中" : "重置密码" }}
           </button>
-        </form>        <div class="form-footer">
-          <template v-if="!isRegister">
+        </form>
+
+        <div class="form-footer">
+          <template v-if="isResetPassword">
+            想起密码？<a href="#" @click.prevent="switchToLogin">立即登录</a>
+          </template>
+          <template v-else-if="!isRegister">
             还没有账号？<a href="#" @click.prevent="switchToRegister">立即注册</a>
           </template>
           <template v-else>
@@ -213,7 +217,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ArrowLeft, Drama, Eye, EyeOff, Lock, Mail, Mic, Music, ShieldCheck, User, Volume2, VolumeX, Zap } from "lucide-vue-next";
 import { useAppStore } from "../stores/app";
@@ -238,6 +242,24 @@ const loginForm = reactive({ identifier: "", password: "" });
 const regForm = reactive({ email: "", code: "", username: "", password: "", confirmPassword: "" });
 const resetForm = reactive({ email: "", code: "", newPassword: "", confirmPassword: "" });
 
+const pageTitle = computed(() => {
+  if (isResetPassword.value) return "重置密码";
+  return isRegister.value ? "创建账号" : "欢迎回来";
+});
+
+const pageSubtitle = computed(() => {
+  if (isResetPassword.value) return "通过邮箱验证码设置新密码";
+  return isRegister.value ? "注册后即可使用全部功能" : "登录账号继续创作";
+});
+
+function resetMessagesAndTimer() {
+  showPwd.value = false;
+  errorMsg.value = "";
+  successMsg.value = "";
+  codeCountdown.value = 0;
+  if (countdownTimer) clearInterval(countdownTimer);
+}
+
 watch([isRegister, isResetPassword], () => {
   loginForm.identifier = "";
   loginForm.password = "";
@@ -246,11 +268,11 @@ watch([isRegister, isResetPassword], () => {
   regForm.username = "";
   regForm.password = "";
   regForm.confirmPassword = "";
-  showPwd.value = false;
-  errorMsg.value = "";
-  successMsg.value = "";
-  codeCountdown.value = 0;
-  if (countdownTimer) clearInterval(countdownTimer);
+  resetForm.email = "";
+  resetForm.code = "";
+  resetForm.newPassword = "";
+  resetForm.confirmPassword = "";
+  resetMessagesAndTimer();
 });
 
 function switchToRegister() {
@@ -275,7 +297,8 @@ function validateEmail(email) {
 async function sendVerificationCode() {
   errorMsg.value = "";
   successMsg.value = "";
-  const email = (isResetPassword.value ? resetForm.email : regForm.email).trim().toLowerCase();
+  const targetForm = isResetPassword.value ? resetForm : regForm;
+  const email = targetForm.email.trim().toLowerCase();
   if (!email) {
     errorMsg.value = "请先输入邮箱地址";
     return;
@@ -289,7 +312,6 @@ async function sendVerificationCode() {
     successMsg.value = data.code
       ? `验证码已发送至 ${email}，开发验证码：${data.code}`
       : `验证码已发送至 ${email}`;
-    if (data.code) console.log("[DEV] verification code:", data.code);
     codeCountdown.value = 60;
     countdownTimer = setInterval(() => {
       codeCountdown.value -= 1;
@@ -354,8 +376,12 @@ async function handleResetPassword() {
   resettingPassword.value = true;
   try {
     await resetPassword({ email, code, newPassword: resetForm.newPassword });
-    successMsg.value = "密码已重置，请重新登录";
-    setTimeout(() => switchToLogin(), 800);
+    successMsg.value = "密码重置成功，请使用新密码登录";
+    setTimeout(() => {
+      switchToLogin();
+      loginForm.identifier = email;
+      successMsg.value = "密码重置成功，请登录";
+    }, 800);
   } catch (err) {
     errorMsg.value = err.message || "重置密码失败";
   } finally {

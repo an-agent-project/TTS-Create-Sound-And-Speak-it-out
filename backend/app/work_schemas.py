@@ -13,6 +13,7 @@ class GenerateRequest(BaseModel):
     pitch: int = Field(0, ge=-50, le=50)
     voiceVolume: int = Field(100, ge=0, le=150, alias="voiceVolume")
     emotion: Literal["calm", "happy", "sad", "excited"] = "calm"
+    emotionIntensity: Literal["light", "normal", "strong"] = "normal"
     bgmType: str = "none"
     outputLang: str = Field("zh", alias="outputLang")
     bgmVolume: int = Field(30, ge=0, le=100)
@@ -55,6 +56,7 @@ class PreprocessResponse(BaseModel):
 
 class Work(BaseModel):
     id: str
+    ownerId: int | None = None
     title: str
     content: str
     sceneId: str = ""
@@ -64,6 +66,7 @@ class Work(BaseModel):
     speed: float
     pitch: int | Literal["low", "normal", "high"]
     emotion: str
+    emotionIntensity: str = "normal"
     bgmType: str
     bgmVolume: int
     duration: int

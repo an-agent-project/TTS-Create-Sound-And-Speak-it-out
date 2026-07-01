@@ -16,7 +16,7 @@ from app.api.voice_clones import router as voice_clones_router
 from app.crud import tts_preview as tts_preview_crud
 from app.data import SCENE_BY_ID, SCENES, VOICE_BY_ID
 from app.auth import get_current_user
-from app.database import engine, get_db
+from app.database import engine, ensure_legacy_schema, get_db
 from app.models import Base, User
 from app.schema_migrations import ensure_runtime_schema
 from app.models import Material
@@ -37,6 +37,7 @@ ensure_storage()
 
 # Create SQL tables on startup for the auth and voice-library APIs.
 Base.metadata.create_all(bind=engine)
+ensure_legacy_schema()
 ensure_runtime_schema(engine)
 
 app = FastAPI(title="TTS Podcast API", version="1.0.0")
@@ -93,7 +94,12 @@ def translate_preview(payload: TranslateRequest) -> TranslateResponse:
 
 
 @app.post("/api/tts/generate", response_model=Work)
-async def generate_tts(payload: GenerateRequest, request: Request, db: Session = Depends(get_db)) -> Work:
+async def generate_tts(
+    payload: GenerateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Work:
     output_lang = payload.outputLang or "zh"
 
     selected_voice_id = payload.voiceId
@@ -139,6 +145,7 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
             speed=payload.speed,
             pitch=payload.pitch,
             emotion=payload.emotion,
+            emotion_intensity=payload.emotionIntensity,
             output_path=dry_output_path,
             provider=provider,
             output_lang=output_lang,
@@ -158,6 +165,7 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
     scene_name = scene["name"] if scene else "通用"
     work = Work(
         id=work_id,
+        ownerId=current_user.id,
         title=payload.title or _build_title(scene_name, processed.cleanedText),
         content=processed.cleanedText,
         sceneId=payload.sceneId or "",
@@ -167,6 +175,7 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
         speed=payload.speed,
         pitch=payload.pitch,
         emotion=payload.emotion,
+        emotionIntensity=payload.emotionIntensity,
         bgmType=payload.bgmType,
         bgmVolume=payload.bgmVolume,
         duration=duration,
@@ -178,12 +187,12 @@ async def generate_tts(payload: GenerateRequest, request: Request, db: Session =
 
 @app.get("/api/works", response_model=list[Work])
 def get_works(current_user: User = Depends(get_current_user)) -> list[Work]:
-    return list_works()
+    return list_works(current_user.id)
 
 
 @app.get("/api/works/{work_id}", response_model=Work)
 def get_work_detail(work_id: str, current_user: User = Depends(get_current_user)) -> Work:
-    work = get_work(work_id)
+    work = get_work(work_id, current_user.id)
     if work is None:
         raise HTTPException(status_code=404, detail="work not found")
     return work
@@ -191,7 +200,7 @@ def get_work_detail(work_id: str, current_user: User = Depends(get_current_user)
 
 @app.delete("/api/works/{work_id}")
 def remove_work(work_id: str, current_user: User = Depends(get_current_user)) -> dict[str, bool]:
-    if not delete_work(work_id):
+    if not delete_work(work_id, current_user.id):
         raise HTTPException(status_code=404, detail="work not found")
     return {"ok": True}
 

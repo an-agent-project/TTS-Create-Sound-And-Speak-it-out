@@ -183,6 +183,9 @@ async function confirmDeleteVoice() {
     await deleteVoiceById(voice.dbId);
     allVoices.value = allVoices.value.filter((item) => item.dbId !== voice.dbId);
     pendingDeleteVoice.value = null;
+    if (store.selectedVoice?.id === voice.id || store.selectedVoice?.dbId === voice.dbId) {
+      store.selectedVoice = null;
+    }
   } catch (error) {
     loadError.value = error.message || "\u5220\u9664\u97f3\u8272\u5931\u8d25";
   } finally {
