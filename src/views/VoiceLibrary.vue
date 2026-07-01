@@ -59,11 +59,15 @@
           :show-preview="true"
           :show-select="!manageMode"
           :manage-mode="manageMode"
+          :show-publish="manageMode && !voice.isSystemVoice"
+          :publish-disabled="publishingVoiceIds.has(voice.dbId) || ['pending', 'approved'].includes(voice.publishStatus)"
+          :publish-label="voice.publishStatus === 'approved' ? '\u5df2\u516c\u5f00' : voice.publishStatus === 'pending' ? '\u5ba1\u6838\u4e2d' : '\u4e0a\u4f20\u516c\u5171\u5e93'"
           @toggle-favorite="store.toggleFavoriteVoice(voice.id)"
           @preview="previewVoice = voice"
           @select="goToWorkspace(voice)"
           @delete-voice="deleteVoice(voice)"
           @update-tags="(tags) => updateVoiceTags(voice.id, tags)"
+          @publish-voice="publishVoice(voice)"
         />
       </div>
 
@@ -109,7 +113,7 @@ import { useRouter } from "vue-router";
 import { Baby, Drama, Search, Settings2, Star, Trash2, User } from "lucide-vue-next";
 import VoiceCard from "../components/VoiceCard.vue";
 import VoicePreview from "../components/VoicePreview.vue";
-import { deleteVoiceById, fetchPersonalVoices } from "../services/api.js";
+import { deleteVoiceById, fetchPersonalVoices, requestVoicePublish } from "../services/api.js";
 import { useAppStore } from "../stores/app.js";
 
 const router = useRouter();
@@ -121,6 +125,7 @@ const showFavoritesOnly = ref(false);
 const previewVoice = ref(null);
 const pendingDeleteVoice = ref(null);
 const deletingVoice = ref(false);
+const publishingVoiceIds = ref(new Set());
 const manageMode = ref(false);
 const loadError = ref("");
 
@@ -190,6 +195,23 @@ async function confirmDeleteVoice() {
   }
 }
 
+
+async function publishVoice(voice) {
+  if (!voice || voice.isSystemVoice || publishingVoiceIds.value.has(voice.dbId)) return;
+  publishingVoiceIds.value = new Set([...publishingVoiceIds.value, voice.dbId]);
+  try {
+    await requestVoicePublish(voice.dbId);
+    voice.publishStatus = "pending";
+    loadError.value = "\u5df2\u63d0\u4ea4\u516c\u5171\u97f3\u8272\u5e93\u5ba1\u6838";
+  } catch (error) {
+    const message = error.message || "\u63d0\u4ea4\u5ba1\u6838\u5931\u8d25";
+    loadError.value = message.includes("already pending") ? "\u8be5\u97f3\u8272\u5df2\u5728\u5ba1\u6838\u4e2d" : message;
+  } finally {
+    const next = new Set(publishingVoiceIds.value);
+    next.delete(voice.dbId);
+    publishingVoiceIds.value = next;
+  }
+}
 function updateVoiceTags(id, tags) {
   const voice = allVoices.value.find((item) => item.id === id);
   if (voice) voice.tags = tags;

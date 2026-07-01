@@ -194,6 +194,15 @@
           <Loader v-else :size="20" class="spin" />
           {{ isGenerating ? '正在生成...' : '一键生成配音' }}
         </button>
+        <div v-if="isGenerating" class="job-progress-card">
+          <div class="job-progress-header">
+            <span>{{ generationMessage || "正在准备生成任务" }}</span>
+            <strong>{{ generationProgress }}%</strong>
+          </div>
+          <div class="job-progress-track">
+            <div class="job-progress-fill" :style="{ width: generationProgress + '%' }"></div>
+          </div>
+        </div>
         <div v-if="generationError" class="error-card">
           {{ generationError }}
         </div>
@@ -241,9 +250,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useAppStore } from "../stores/app.js";
-import { fetchMaterials, fetchVoices, generateTts, translateText } from "../services/api.js";
+import { createJobEventSource, fetchMaterials, fetchVoices, startGenerateTtsJob, translateText } from "../services/api.js";
 import SceneCard from "../components/SceneCard.vue";
 import TextEditor from "../components/TextEditor.vue";
 import AudioPlayer from "../components/AudioPlayer.vue";
@@ -281,6 +290,9 @@ const settings = ref({
   pitch: normalizePitch(store.settings.pitch),
 });
 const isGenerating = ref(false);
+const generationProgress = ref(0);
+const generationMessage = ref("");
+const generationJobSource = ref(null);
 const isPlaying = ref(false);
 const generatedWork = ref(null);
 const previewVoice = ref(null);
@@ -388,7 +400,9 @@ async function generateAudio() {
   isGenerating.value = true;
 
   try {
-    const work = await generateTts({
+    generationProgress.value = 1;
+    generationMessage.value = "正在提交生成任务";
+    const { jobId } = await startGenerateTtsJob({
       content: textContent.value,
       sceneId: selectedScene.value?.id || "",
       voiceId: selectedVoice.value.providerVoiceId || selectedVoice.value.id,
@@ -403,6 +417,7 @@ async function generateAudio() {
       outputLang: outputLang.value,
       translatedContent: outputLang.value !== "zh" ? generateContent.value : undefined,
     });
+    const work = await waitForGenerateJob(jobId);
     generatedWork.value = work;
     store.addWork(work);
   } catch (error) {
@@ -412,6 +427,44 @@ async function generateAudio() {
   }
 }
 
+
+function waitForGenerateJob(jobId) {
+  closeGenerationJobSource();
+  return new Promise((resolve, reject) => {
+    const source = createJobEventSource(jobId);
+    generationJobSource.value = source;
+
+    source.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        generationProgress.value = Math.max(0, Math.min(100, Number(payload.progress || 0)));
+        generationMessage.value = payload.message || "正在生成配音";
+        if (payload.status === "completed") {
+          closeGenerationJobSource();
+          resolve(payload.result?.work);
+        } else if (payload.status === "failed") {
+          closeGenerationJobSource();
+          reject(new Error(payload.error || payload.message || "配音生成失败"));
+        }
+      } catch (error) {
+        closeGenerationJobSource();
+        reject(error);
+      }
+    };
+
+    source.onerror = () => {
+      closeGenerationJobSource();
+      reject(new Error("生成进度连接中断"));
+    };
+  });
+}
+
+function closeGenerationJobSource() {
+  if (generationJobSource.value) {
+    generationJobSource.value.close();
+    generationJobSource.value = null;
+  }
+}
 function regenerate() {
   generatedWork.value = null;
   generationError.value = "";
@@ -424,6 +477,9 @@ async function saveWork() {
     alert("✅ 作品已保存！可在「我的作品」中查看。");
   }
 }
+onBeforeUnmount(() => {
+  closeGenerationJobSource();
+});
 </script>
 
 <style scoped>
@@ -431,6 +487,42 @@ async function saveWork() {
   padding-bottom: 40px;
 }
 
+
+.job-progress-card {
+  margin: -8px 0 18px;
+  padding: 14px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+
+.job-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.job-progress-header strong {
+  color: var(--primary);
+}
+
+.job-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bg);
+}
+
+.job-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  transition: width .25s ease;
+}
 .error-card {
   margin: -8px 0 18px;
   padding: 12px 14px;

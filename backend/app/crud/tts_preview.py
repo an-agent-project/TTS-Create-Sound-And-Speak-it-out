@@ -13,15 +13,24 @@ def hash_sample_text(text: str) -> str:
 def get_provider_profile_by_voice_id(
     db: Session,
     provider_voice_id: str,
+    user_id: int | None = None,
 ) -> models.VoiceProviderProfile | None:
-    return (
+    query = (
         db.query(models.VoiceProviderProfile)
+        .join(models.Voice)
         .filter(
             models.VoiceProviderProfile.provider_voice_id == provider_voice_id,
             models.VoiceProviderProfile.is_active.is_(True),
+            models.Voice.is_active.is_(True),
         )
-        .first()
     )
+    if user_id is not None:
+        query = query.filter(
+            (models.Voice.owner_id.is_(None)) | (models.Voice.owner_id == user_id)
+        )
+    else:
+        query = query.filter(models.Voice.owner_id.is_(None))
+    return query.first()
 
 
 def get_ready_preview_cache(

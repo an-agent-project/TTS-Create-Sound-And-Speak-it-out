@@ -14,6 +14,7 @@ def test_voice_preview_calls_tts_preview_api_and_plays_audio():
     source = VOICE_PREVIEW_PATH.read_text(encoding="utf-8")
 
     assert 'fetch("/api/tts/preview"' in source
+    assert '...authHeaders()' in source
     assert 'voiceId: props.voice.providerVoiceId || props.voice.id' in source
     assert "new Audio(audioUrl.value)" in source
     assert "@toggle-play=\"togglePreview\"" in source
@@ -76,9 +77,10 @@ def test_extraction_page_exposes_bailian_clone_upload_not_voice_library():
     extraction_source = (ROOT_DIR / "src" / "views" / "ExtractionPage.vue").read_text(encoding="utf-8")
 
     assert "export async function createVoiceClone" in api_source
+    assert "export async function createVoiceCloneJob" in api_source
     assert 'fetch(`${API_BASE}/voice-clones`' in api_source
     assert 'localStorage.getItem("auth_token")' in api_source
-    assert 'createVoiceClone(formData)' in extraction_source
+    assert 'createVoiceCloneJob(formData)' in extraction_source
     assert 'cloneVoice' in extraction_source
     assert '克隆音色' in extraction_source
     assert 'createVoiceClone(formData)' not in library_source
@@ -91,6 +93,7 @@ def test_extraction_page_generates_preview_for_cloned_voice_result():
 
     assert "export function synthesizeVoicePreview" in api_source
     assert 'request("/tts/preview"' in api_source
+    assert 'headers: authHeaders(),' in api_source
     assert 'synthesizeVoicePreview({' in extraction_source
     assert 'voiceId: clonedVoice.providers?.[0]?.providerVoiceId' in extraction_source
     assert 'src: preview.audioUrl' in extraction_source

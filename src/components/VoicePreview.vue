@@ -55,6 +55,11 @@ import { onBeforeUnmount, ref, watch } from "vue";
 import AudioPlayer from "./AudioPlayer.vue";
 import { User, Baby, X, Check } from 'lucide-vue-next'
 
+function authHeaders() {
+  const token = localStorage.getItem("auth_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 const props = defineProps({
   voice: { type: Object, required: true },
 });
@@ -82,7 +87,7 @@ async function ensurePreviewAudio() {
   try {
     const response = await fetch("/api/tts/preview", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({
         text: sampleText,
         voiceId: props.voice.providerVoiceId || props.voice.id,

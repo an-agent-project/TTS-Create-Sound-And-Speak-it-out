@@ -62,6 +62,20 @@ class VoiceProviderProfile(Base):
     voice = relationship("Voice", back_populates="providers")
     preview_audios = relationship("VoicePreviewAudio", back_populates="provider_profile")
 
+class VoicePublishRequest(Base):
+    __tablename__ = "voice_publish_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_voice_id = Column(Integer, nullable=False, index=True)
+    requester_id = Column(Integer, nullable=False, index=True)
+    public_voice_id = Column(Integer, nullable=True, index=True)
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    request_note = Column(String(500))
+    review_note = Column(String(500))
+    reviewed_by = Column(Integer, nullable=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
 
 class VoicePreviewAudio(Base):
     __tablename__ = "voice_preview_audios"
@@ -108,7 +122,6 @@ class Material(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
-
 
 class MaterialReport(Base):
     __tablename__ = "material_reports"

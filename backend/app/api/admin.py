@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_admin
 from app.crud import voices as voice_crud
 from app.database import engine, get_db
-from app.models import Material, MaterialReport, User, Voice, VoicePreviewAudio
+from app.models import Material, MaterialReport, User, Voice, VoicePreviewAudio, VoiceProviderProfile, VoicePublishRequest
 from app.storage import MEDIA_DIR, delete_work, list_works
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -224,6 +224,153 @@ def delete_voice(
     db.commit()
     return {"detail": "voice deleted"}
 
+
+
+def _public_provider_voice_id(provider_voice_id: str, request_id: int) -> str:
+    suffix = f"#public-{request_id}"
+    return f"{provider_voice_id[:120 - len(suffix)]}{suffix}"
+
+
+def _serialize_voice_publish_request(db: Session, item: VoicePublishRequest) -> dict:
+    voice = db.query(Voice).filter(Voice.id == item.source_voice_id).first()
+    requester = db.query(User).filter(User.id == item.requester_id).first()
+    providers = []
+    if voice:
+        providers = [
+            {
+                "id": provider.id,
+                "provider": provider.provider,
+                "providerVoiceId": provider.provider_voice_id,
+                "isActive": provider.is_active,
+            }
+            for provider in voice.providers
+        ]
+    return {
+        "id": item.id,
+        "status": item.status,
+        "sourceVoiceId": item.source_voice_id,
+        "publicVoiceId": item.public_voice_id,
+        "requesterId": item.requester_id,
+        "requesterName": requester.username if requester else "(unknown)",
+        "voiceName": voice.display_name if voice else "(deleted)",
+        "voiceKey": voice.voice_key if voice else None,
+        "gender": voice.gender if voice else None,
+        "style": voice.style if voice else None,
+        "category": voice.category if voice else None,
+        "description": voice.description if voice else None,
+        "providers": providers,
+        "requestNote": item.request_note,
+        "reviewNote": item.review_note,
+        "createdAt": item.created_at.isoformat() if item.created_at else None,
+        "updatedAt": item.updated_at.isoformat() if item.updated_at else None,
+    }
+
+
+@router.get("/voice-publish-requests")
+def list_voice_publish_requests(
+    status_filter: str | None = Query(default="pending", alias="status"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+) -> dict:
+    query = db.query(VoicePublishRequest)
+    if status_filter:
+        query = query.filter(VoicePublishRequest.status == status_filter)
+    total = query.count()
+    items = (
+        query.order_by(VoicePublishRequest.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return {
+        "total": total,
+        "page": page,
+        "pageSize": page_size,
+        "items": [_serialize_voice_publish_request(db, item) for item in items],
+    }
+
+
+@router.post("/voice-publish-requests/{request_id}/review")
+def review_voice_publish_request(
+    request_id: int,
+    action: str = Query(description="'approve' or 'reject'"),
+    note: str = Query(default=""),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+) -> dict:
+    if action not in ("approve", "reject"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="action must be 'approve' or 'reject'")
+
+    publish_request = db.query(VoicePublishRequest).filter(VoicePublishRequest.id == request_id).first()
+    if not publish_request:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="publish request not found")
+    if publish_request.status != "pending":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="publish request already reviewed")
+
+    if action == "reject":
+        publish_request.status = "rejected"
+        publish_request.reviewed_by = admin.id
+        publish_request.review_note = note[:500] if note else None
+        db.commit()
+        db.refresh(publish_request)
+        return _serialize_voice_publish_request(db, publish_request)
+
+    source = (
+        db.query(Voice)
+        .filter(
+            Voice.id == publish_request.source_voice_id,
+            Voice.owner_id.is_not(None),
+            Voice.is_active.is_(True),
+        )
+        .first()
+    )
+    if not source:
+        publish_request.status = "rejected"
+        publish_request.reviewed_by = admin.id
+        publish_request.review_note = "source voice is unavailable"
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="source voice is unavailable")
+
+    public_voice = Voice(
+        voice_key=f"public-{publish_request.id}-{source.voice_key}"[:100],
+        display_name=source.display_name,
+        gender=source.gender,
+        style=source.style,
+        category=source.category,
+        description=source.description,
+        is_recommended=False,
+        is_active=True,
+        owner_id=None,
+        source_voice_id=source.id,
+    )
+    for provider in source.providers:
+        if not provider.is_active:
+            continue
+        public_voice.providers.append(
+            VoiceProviderProfile(
+                provider=provider.provider,
+                provider_voice_id=_public_provider_voice_id(provider.provider_voice_id, publish_request.id),
+                locale=provider.locale,
+                supports_wav=provider.supports_wav,
+                supports_mp3=provider.supports_mp3,
+                is_default=provider.is_default,
+                is_active=True,
+            )
+        )
+    if not public_voice.providers:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="source voice has no active provider")
+
+    db.add(public_voice)
+    db.flush()
+    publish_request.status = "approved"
+    publish_request.public_voice_id = public_voice.id
+    publish_request.reviewed_by = admin.id
+    publish_request.review_note = note[:500] if note else None
+    db.commit()
+    db.refresh(publish_request)
+    return _serialize_voice_publish_request(db, publish_request)
 
 @router.get("/works")
 def list_all_works(
